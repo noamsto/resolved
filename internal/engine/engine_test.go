@@ -1,0 +1,92 @@
+package engine
+
+import (
+	"context"
+	"os"
+	"path/filepath"
+	"testing"
+
+	"github.com/noamsto/resolved/internal/cache"
+	"github.com/noamsto/resolved/internal/model"
+)
+
+// fakeFetcher returns canned statuses and records how many refs it was asked for.
+type fakeFetcher struct {
+	statuses map[string]model.Status
+	asked    int
+}
+
+func (f *fakeFetcher) Fetch(_ context.Context, refs []model.Reference) (map[string]model.Status, error) {
+	f.asked += len(refs)
+	out := map[string]model.Status{}
+	for _, r := range refs {
+		out[r.Key()] = f.statuses[r.Key()]
+	}
+	return out, nil
+}
+
+func writeFile(t *testing.T, dir, name, content string) string {
+	t.Helper()
+	p := filepath.Join(dir, name)
+	if err := os.WriteFile(p, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	return p
+}
+
+func TestRunClassifiesStale(t *testing.T) {
+	dir := t.TempDir()
+	f := writeFile(t, dir, "a.go",
+		"package main\n// TODO https://github.com/o/r/issues/1\nfunc main(){}\n")
+
+	fetcher := &fakeFetcher{statuses: map[string]model.Status{
+		"o/r#1": {State: "closed", Title: "bug"},
+	}}
+
+	res, err := Run(context.Background(), Options{
+		Targets:  []string{f},
+		Keywords: []string{"TODO"},
+		Cache:    cache.New(t.TempDir()),
+		GitHub:   fetcher,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res.Findings) != 1 {
+		t.Fatalf("got %d findings, want 1", len(res.Findings))
+	}
+	if res.Findings[0].Tier != model.TierStale {
+		t.Fatalf("tier = %v, want stale", res.Findings[0].Tier)
+	}
+	if res.Summary.Stale != 1 {
+		t.Fatalf("summary.Stale = %d, want 1", res.Summary.Stale)
+	}
+}
+
+func TestRunDedupesAndUsesCache(t *testing.T) {
+	dir := t.TempDir()
+	f := writeFile(t, dir, "a.go",
+		"package main\n// see #1 and again #1\nfunc main(){}\n")
+
+	c := cache.New(t.TempDir())
+	c.Put("o/r#1", model.Status{State: "open"})
+
+	fetcher := &fakeFetcher{statuses: map[string]model.Status{}}
+
+	res, err := Run(context.Background(), Options{
+		Targets:  []string{f},
+		Keywords: []string{"TODO"},
+		Owner:    "o", Repo: "r",
+		Cache:  c,
+		GitHub: fetcher,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if fetcher.asked != 0 {
+		t.Fatalf("fetcher asked for %d refs, want 0 (all cached)", fetcher.asked)
+	}
+	if len(res.Findings) != 2 {
+		t.Fatalf("got %d findings, want 2", len(res.Findings))
+	}
+}
