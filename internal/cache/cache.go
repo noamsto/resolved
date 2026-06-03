@@ -34,10 +34,11 @@ func ttlFor(e entry) time.Duration {
 
 // Cache is a JSON-file-backed map of reference key -> entry.
 type Cache struct {
-	mu      sync.Mutex
-	path    string
-	entries map[string]entry
-	now     func() time.Time
+	mu       sync.Mutex
+	path     string
+	entries  map[string]entry
+	now      func() time.Time
+	disabled bool
 }
 
 // New loads (or starts) a cache rooted at dir.
@@ -53,10 +54,18 @@ func New(dir string) *Cache {
 	return c
 }
 
+// Disabled returns a cache that always misses and never writes — used by --no-cache.
+func Disabled() *Cache {
+	return &Cache{entries: map[string]entry{}, now: time.Now, disabled: true}
+}
+
 // Get returns the cached status if present and still fresh per ttlFor.
 func (c *Cache) Get(key string) (model.Status, bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	if c.disabled {
+		return model.Status{}, false
+	}
 	e, ok := c.entries[key]
 	if !ok {
 		return model.Status{}, false
@@ -71,6 +80,9 @@ func (c *Cache) Get(key string) (model.Status, bool) {
 func (c *Cache) Put(key string, s model.Status) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	if c.disabled {
+		return
+	}
 	c.entries[key] = entry{
 		State:     s.State,
 		Title:     s.Title,

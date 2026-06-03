@@ -51,9 +51,11 @@ func runScan(cfg scanConfig) (int, error) {
 		fetcher = client
 	}
 
-	cacheDir := filepath.Join(os.TempDir(), "resolved-nocache")
-	if !cfg.noCache {
-		cacheDir = defaultCacheDir()
+	var c *cache.Cache
+	if cfg.noCache {
+		c = cache.Disabled()
+	} else {
+		c = cache.New(defaultCacheDir())
 	}
 
 	res, err := engine.Run(context.Background(), engine.Options{
@@ -61,7 +63,7 @@ func runScan(cfg scanConfig) (int, error) {
 		Keywords: cfg.keywords,
 		Owner:    owner,
 		Repo:     repo,
-		Cache:    cache.New(cacheDir),
+		Cache:    c,
 		GitHub:   fetcher,
 	})
 	if err != nil {

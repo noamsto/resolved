@@ -57,3 +57,11 @@ func TestPersistsAcrossInstances(t *testing.T) {
 		t.Fatal("entry should persist to disk and reload")
 	}
 }
+
+func TestDisabledAlwaysMisses(t *testing.T) {
+	c := Disabled()
+	c.Put("o/r#1", model.Status{State: "closed"})
+	if _, ok := c.Get("o/r#1"); ok {
+		t.Fatal("disabled cache should always miss")
+	}
+}
