@@ -81,8 +81,8 @@ func RenderHuman(w io.Writer, r engine.Result, color bool) {
 		}
 	}
 	s := r.Summary
-	fmt.Fprintf(w, "\n%d refs in %d files — %d stale, %d closed, %d open, %d unknown\n",
-		s.Refs, s.Scanned, s.Stale, s.Closed, s.Open, s.Unknown)
+	fmt.Fprintf(w, "\n%d refs in %d files — %d stale, %d closed, %d open, %d gone, %d unknown\n",
+		s.Refs, s.Scanned, s.Stale, s.Closed, s.Open, s.Gone, s.Unknown)
 }
 
 // ExitCode returns 0 (clean) or 1 (gate tripped) per the fail-on policy.

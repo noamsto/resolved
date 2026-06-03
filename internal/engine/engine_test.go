@@ -63,6 +63,28 @@ func TestRunClassifiesStale(t *testing.T) {
 	}
 }
 
+func TestRunCountsGone(t *testing.T) {
+	dir := t.TempDir()
+	f := writeFile(t, dir, "a.go",
+		"package main\n// see https://github.com/o/r/issues/9\nfunc main(){}\n")
+	fetcher := &fakeFetcher{statuses: map[string]model.Status{
+		"o/r#9": {State: "gone"},
+	}}
+	res, err := Run(context.Background(), Options{
+		Targets: []string{f}, Keywords: []string{"TODO"},
+		Cache: cache.New(t.TempDir()), GitHub: fetcher,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Summary.Gone != 1 {
+		t.Fatalf("Summary.Gone = %d, want 1", res.Summary.Gone)
+	}
+	if res.Summary.Unknown != 0 {
+		t.Fatalf("Summary.Unknown = %d, want 0 (gone must not count as unknown)", res.Summary.Unknown)
+	}
+}
+
 func TestRunDedupesAndUsesCache(t *testing.T) {
 	dir := t.TempDir()
 	f := writeFile(t, dir, "a.go",

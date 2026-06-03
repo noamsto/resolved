@@ -6,8 +6,8 @@ import (
 	"os"
 
 	"github.com/noamsto/resolved/internal/engine"
-	"github.com/noamsto/resolved/internal/github"
 	"github.com/noamsto/resolved/internal/gitctx"
+	"github.com/noamsto/resolved/internal/github"
 	"github.com/noamsto/resolved/internal/model"
 	"github.com/noamsto/resolved/internal/patterns"
 	"github.com/spf13/cobra"
@@ -43,10 +43,12 @@ func init() {
 	cmd := &cobra.Command{
 		Use:   "check <url|owner/repo#n|#n>",
 		Short: "Print the status of a single GitHub reference",
-		Args:  cobra.ExactArgs(1),
+		Long: "Print the status of a single GitHub reference. " +
+			"Exits 1 if the reference is closed or stale; 0 for open/gone/unknown; 2 on tool error.",
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			dir, _ := os.Getwd()
-			owner, repo, _ := gitctx.OriginRepo(dir)
+			dir, _ := os.Getwd()                     // cwd only used to find git origin; failure is non-fatal
+			owner, repo, _ := gitctx.OriginRepo(dir) // best-effort; empty disables bare #n resolution
 			ref, err := parseRef(args[0], owner, repo)
 			if err != nil {
 				return err

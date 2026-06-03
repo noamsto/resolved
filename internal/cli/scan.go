@@ -2,14 +2,15 @@ package cli
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 
 	"github.com/noamsto/resolved/internal/cache"
 	"github.com/noamsto/resolved/internal/engine"
-	"github.com/noamsto/resolved/internal/github"
 	"github.com/noamsto/resolved/internal/gitctx"
+	"github.com/noamsto/resolved/internal/github"
 	"github.com/noamsto/resolved/internal/report"
 	"github.com/spf13/cobra"
 )
@@ -34,7 +35,15 @@ type scanConfig struct {
 }
 
 // runScan resolves targets, runs the engine, renders, and returns the exit code.
+// The returned int is only meaningful when err == nil; on a non-nil error the
+// caller must treat it as a tool error (process exit 2), which Execute() handles.
 func runScan(cfg scanConfig) (int, error) {
+	switch cfg.failOn {
+	case "stale", "closed", "any":
+	default:
+		return 2, fmt.Errorf("unknown --fail-on value %q: must be stale|closed|any", cfg.failOn)
+	}
+
 	targets, err := resolveTargets(cfg.dir, cfg.args, cfg.staged, cfg.diffRef, cfg.exclude)
 	if err != nil {
 		return 2, err

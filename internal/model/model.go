@@ -43,7 +43,7 @@ type Confidence int
 
 const (
 	ConfHigh Confidence = iota
-	ConfLow
+	ConfLow             // reserved: for cross-repo bare-ref guesses once such detection exists
 )
 
 func (c Confidence) String() string {

@@ -28,6 +28,20 @@ func writeTestFile(t *testing.T, dir, name, content string) {
 	}
 }
 
+func TestRunScanRejectsBadFailOn(t *testing.T) {
+	code, err := runScan(scanConfig{
+		dir: t.TempDir(), args: []string{t.TempDir()},
+		keywords: []string{"TODO"}, failOn: "bogus",
+		json: true, fetcher: stubFetcher{}, out: new(bytes.Buffer),
+	})
+	if err == nil {
+		t.Fatal("expected error for invalid --fail-on")
+	}
+	if code != 2 {
+		t.Fatalf("code = %d, want 2", code)
+	}
+}
+
 func TestRunScanJSONAndExitCode(t *testing.T) {
 	dir := t.TempDir()
 	writeTestFile(t, dir, "a.go",

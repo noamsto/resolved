@@ -31,6 +31,7 @@ type Summary struct {
 	Stale   int `json:"stale"`
 	Closed  int `json:"closed"`
 	Open    int `json:"open"`
+	Gone    int `json:"gone"`
 	Unknown int `json:"unknown"`
 }
 
@@ -67,6 +68,8 @@ func Run(ctx context.Context, opts Options) (Result, error) {
 			res.Summary.Closed++
 		case model.TierOpen:
 			res.Summary.Open++
+		case model.TierGone:
+			res.Summary.Gone++
 		default:
 			res.Summary.Unknown++
 		}

@@ -3,6 +3,7 @@ package patterns
 import (
 	"regexp"
 	"strconv"
+	"sync"
 
 	"github.com/noamsto/resolved/internal/model"
 )
@@ -89,12 +90,22 @@ func Extract(text, originOwner, originRepo string) []Match {
 	return out
 }
 
+var keywordReCache sync.Map // keyword string -> *regexp.Regexp
+
+func keywordRe(kw string) *regexp.Regexp {
+	if v, ok := keywordReCache.Load(kw); ok {
+		return v.(*regexp.Regexp)
+	}
+	re := regexp.MustCompile(`(?i)\b` + regexp.QuoteMeta(kw) + `\b`)
+	keywordReCache.Store(kw, re)
+	return re
+}
+
 // DetectKeyword returns the first keyword (whole-word, case-insensitive) found
 // in text, or "" if none.
 func DetectKeyword(text string, keywords []string) string {
 	for _, kw := range keywords {
-		re := regexp.MustCompile(`(?i)\b` + regexp.QuoteMeta(kw) + `\b`)
-		if re.MatchString(text) {
+		if keywordRe(kw).MatchString(text) {
 			return kw
 		}
 	}
