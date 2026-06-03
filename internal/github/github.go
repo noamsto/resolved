@@ -65,7 +65,12 @@ func (c *Client) Fetch(ctx context.Context, refs []model.Reference) (map[string]
 	// Group references by owner/repo and assign aliases.
 	groups := map[string]*repoAlias{}
 	var order []string
+	seen := map[string]bool{}
 	for _, r := range refs {
+		if seen[r.Key()] {
+			continue
+		}
+		seen[r.Key()] = true
 		gk := r.Owner + "/" + r.Repo
 		if _, ok := groups[gk]; !ok {
 			groups[gk] = &repoAlias{owner: r.Owner, repo: r.Repo}
@@ -76,7 +81,10 @@ func (c *Client) Fetch(ctx context.Context, refs []model.Reference) (map[string]
 
 	query, aliasToKey := buildQuery(order, groups)
 
-	body, _ := json.Marshal(map[string]string{"query": query})
+	body, err := json.Marshal(map[string]string{"query": query})
+	if err != nil {
+		return nil, fmt.Errorf("marshal graphql body: %w", err)
+	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.endpoint, bytes.NewReader(body))
 	if err != nil {
 		return nil, err
@@ -94,16 +102,29 @@ func (c *Client) Fetch(ctx context.Context, refs []model.Reference) (map[string]
 	}
 
 	var raw struct {
-		Data map[string]map[string]*node `json:"data"`
+		Data   map[string]map[string]*node `json:"data"`
+		Errors []struct {
+			Message string `json:"message"`
+		} `json:"errors"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&raw); err != nil {
 		return nil, err
+	}
+	if raw.Data == nil && len(raw.Errors) > 0 {
+		msgs := make([]string, len(raw.Errors))
+		for i, e := range raw.Errors {
+			msgs[i] = e.Message
+		}
+		return nil, fmt.Errorf("github graphql: %s", strings.Join(msgs, "; "))
 	}
 
 	out := make(map[string]model.Status, len(refs))
 	for repoAliasName, items := range raw.Data {
 		for itemAlias, n := range items {
 			key := aliasToKey[repoAliasName+"."+itemAlias]
+			if key == "" {
+				continue
+			}
 			out[key] = n.status()
 		}
 	}

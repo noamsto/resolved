@@ -41,6 +41,19 @@ func TestFetchParsesStatuses(t *testing.T) {
 	}
 }
 
+func TestFetchGraphQLErrorReturnsError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"data":null,"errors":[{"message":"Could not resolve to a Repository with the name 'o/r'."}]}`))
+	}))
+	defer srv.Close()
+
+	c := &Client{httpClient: srv.Client(), endpoint: srv.URL, token: "t"}
+	_, err := c.Fetch(context.Background(), []model.Reference{{Owner: "o", Repo: "r", Number: 1}})
+	if err == nil {
+		t.Fatal("expected error from graphql errors response, got nil")
+	}
+}
+
 func TestFetchMissingNodeIsGone(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write([]byte(`{"data":{"r0":{"i0":null}}}`))
