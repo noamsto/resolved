@@ -7,6 +7,11 @@ import (
 )
 
 func TestVersionCommand(t *testing.T) {
+	t.Cleanup(func() {
+		rootCmd.SetOut(nil)
+		rootCmd.SetArgs(nil)
+	})
+
 	buf := new(bytes.Buffer)
 	rootCmd.SetOut(buf)
 	rootCmd.SetArgs([]string{"version"})
