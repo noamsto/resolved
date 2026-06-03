@@ -38,6 +38,7 @@ func TestRunScanJSONAndExitCode(t *testing.T) {
 	buf := new(bytes.Buffer)
 	code, err := runScan(scanConfig{
 		dir:      dir,
+		args:     []string{dir},
 		keywords: []string{"TODO"},
 		failOn:   "stale",
 		json:     true,

@@ -37,13 +37,7 @@ type scanConfig struct {
 func runScan(cfg scanConfig) (int, error) {
 	targets, err := resolveTargets(cfg.dir, cfg.args, cfg.staged, cfg.diffRef, cfg.exclude)
 	if err != nil {
-		// Not a git repo and no explicit args: fall back to walking cfg.dir directly.
-		if len(cfg.args) == 0 && !cfg.staged && cfg.diffRef == "" {
-			targets, err = resolveTargets(cfg.dir, []string{cfg.dir}, false, "", cfg.exclude)
-		}
-		if err != nil {
-			return 2, err
-		}
+		return 2, err
 	}
 
 	owner, repo, _ := gitctx.OriginRepo(cfg.dir) // best-effort; empty disables bare #n
