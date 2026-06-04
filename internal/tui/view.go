@@ -54,12 +54,13 @@ func (m Model) renderAll() string {
 	if listW < 24 {
 		listW = 24
 	}
-	detailW := width - listW - 4
+	detailW := width - listW // Width includes the border, so the panes tile exactly
 	if detailW < 20 {
 		detailW = 20
 	}
 
 	ph := m.listHeight()
+	paneH := ph + 2                                 // Height includes the border; ph is the inner content height
 	frame := m.styles.pane.GetHorizontalFrameSize() // border + padding (l+r)
 	listInner := listW - frame
 	if listInner < 6 {
@@ -69,10 +70,12 @@ func (m Model) renderAll() string {
 	if detailInner < 6 {
 		detailInner = 6
 	}
+	// MaxHeight hard-clips: Height is only a minimum, and content that wraps
+	// would otherwise grow the pane and push the footer off-screen.
 	body := lipgloss.JoinHorizontal(
 		lipgloss.Top,
-		m.styles.pane.Width(listW).Height(ph).Render(m.renderList(listInner)),
-		m.styles.pane.Width(detailW).Height(ph).Render(m.renderDetail(detailInner, ph)),
+		m.styles.pane.Width(listW).Height(paneH).MaxHeight(paneH).Render(m.renderList(listInner)),
+		m.styles.pane.Width(detailW).Height(paneH).MaxHeight(paneH).Render(m.renderDetail(detailInner, ph)),
 	)
 
 	return strings.Join([]string{header, body, footer}, "\n")
@@ -97,7 +100,7 @@ func (m Model) renderHeader(width int) string {
 	if gap >= 1 {
 		line = left + strings.Repeat(" ", gap) + right
 	}
-	return m.styles.header.Width(width).Render(line)
+	return m.styles.header.Width(width).Render(ansi.Truncate(line, inner, "…"))
 }
 
 func (m Model) renderFooter(width int) string {
@@ -105,7 +108,8 @@ func (m Model) renderFooter(width int) string {
 	if m.status != "" {
 		help = m.status + "   " + help
 	}
-	return m.styles.footer.Width(width).Render(help)
+	inner := width - m.styles.footer.GetHorizontalFrameSize()
+	return m.styles.footer.Width(width).Render(ansi.Truncate(help, inner, "…"))
 }
 
 // locColWidth is the width of the file/line column: the longest entry across
@@ -216,15 +220,25 @@ func (m Model) renderDetail(width, height int) string {
 		m.styles.detailKey.Render("kind     ") + fmt.Sprintf("%s · %s", f.Kind, f.Confidence),
 		"",
 	}
-	lines = append(lines, m.renderPreview(f, width, height-len(lines))...)
+	// Truncate instead of letting lipgloss wrap: a wrapped line grows the pane
+	// past its Height and pushes the footer off-screen.
+	for i, ln := range lines {
+		lines[i] = ansi.Truncate(ln, width, "…")
+	}
+	if avail := height - len(lines); avail >= 1 {
+		lines = append(lines, m.renderPreview(f, width, avail)...)
+	}
+	if len(lines) > height {
+		lines = lines[:height]
+	}
 	return strings.Join(lines, "\n")
 }
 
 // renderPreview renders a source window around the reference line with a
 // line-number gutter; the ref line is marked. Uses up to avail lines.
 func (m Model) renderPreview(f model.Finding, width, avail int) []string {
-	if avail < 3 {
-		avail = 3
+	if avail < 1 {
+		return nil
 	}
 	src, ok := m.sources.lines(f.File)
 	if !ok {

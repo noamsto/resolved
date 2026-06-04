@@ -249,15 +249,16 @@ func (m Model) View() tea.View {
 	return v
 }
 
-// listHeight is the number of finding rows visible in the list pane, derived
-// from terminal height minus header+footer chrome; a sane default applies
-// before the first WindowSizeMsg.
+// listHeight is the number of finding rows visible in the list pane: terminal
+// height minus header (1), footer (1), and the pane border (2) — lipgloss
+// Width/Height include the border. A sane default applies before the first
+// WindowSizeMsg.
 func (m Model) listHeight() int {
 	h := m.height
 	if h <= 0 {
 		h = 24
 	}
-	rows := h - 5
+	rows := h - 4
 	if rows < 1 {
 		rows = 1
 	}
