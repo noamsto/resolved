@@ -1,6 +1,8 @@
 package tui
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -91,5 +93,28 @@ func TestHeaderShowsRoot(t *testing.T) {
 	}
 	if strings.Contains(out, "/home/test/proj/internal/x.go") {
 		t.Fatalf("absolute path should not appear when under root:\n%s", out)
+	}
+}
+
+func TestPreviewShowsWindow(t *testing.T) {
+	dir := t.TempDir()
+	p := filepath.Join(dir, "demo.go")
+	src := "package d\n\nvar before2 = 1\nvar before1 = 2\n// TODO the ref line\nvar after1 = 3\nvar after2 = 4\n"
+	if err := os.WriteFile(p, []byte(src), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	f := model.Finding{
+		Reference: model.Reference{File: p, Line: 5, Owner: "o", Repo: "r", Number: 1, Type: model.TypeIssue},
+		Status:    model.Status{State: "closed", Title: "x"},
+		Tier:      model.TierStale,
+	}
+	m := New([]model.Finding{f}, Deps{}, Mocha())
+	nm, _ := m.Update(tea.WindowSizeMsg{Width: 140, Height: 30})
+	m = nm.(Model)
+	out := strip(m.View().Content)
+	for _, want := range []string{"before1", "TODO the ref line", "after1", "▶"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("preview missing %q:\n%s", want, out)
+		}
 	}
 }

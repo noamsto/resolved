@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	lipgloss "charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/noamsto/resolved/internal/model"
 )
 
@@ -71,7 +72,7 @@ func (m Model) renderAll() string {
 	body := lipgloss.JoinHorizontal(
 		lipgloss.Top,
 		m.styles.pane.Width(listW).Height(ph).Render(m.renderList(listInner)),
-		m.styles.pane.Width(detailW).Height(ph).Render(m.renderDetail(detailInner)),
+		m.styles.pane.Width(detailW).Height(ph).Render(m.renderDetail(detailInner, ph)),
 	)
 
 	return strings.Join([]string{header, body, footer}, "\n")
@@ -195,12 +196,11 @@ func (m Model) renderFindingRow(f model.Finding, selected bool, locW, width int)
 	return lipgloss.NewStyle().Foreground(m.styles.tierColor(f.Tier)).Render(row)
 }
 
-func (m Model) renderDetail(width int) string {
+func (m Model) renderDetail(width, height int) string {
 	f, ok := m.current()
 	if !ok {
 		return "no references"
 	}
-	snippet := m.sources.snippet(f.File, f.Line)
 	kw := f.Keyword
 	if kw == "" {
 		kw = "—"
@@ -215,9 +215,49 @@ func (m Model) renderDetail(width int) string {
 		m.styles.detailKey.Render("keyword  ") + kw,
 		m.styles.detailKey.Render("kind     ") + fmt.Sprintf("%s · %s", f.Kind, f.Confidence),
 		"",
-		m.styles.snippet.Render(snippet),
 	}
+	lines = append(lines, m.renderPreview(f, width, height-len(lines))...)
 	return strings.Join(lines, "\n")
+}
+
+// renderPreview renders a source window around the reference line with a
+// line-number gutter; the ref line is marked. Uses up to avail lines.
+func (m Model) renderPreview(f model.Finding, width, avail int) []string {
+	if avail < 3 {
+		avail = 3
+	}
+	src, ok := m.sources.lines(f.File)
+	if !ok {
+		return []string{m.styles.snippet.Render(sourceUnavailable)}
+	}
+	start := f.Line - 2
+	if start < 1 {
+		start = 1
+	}
+	end := start + avail - 1
+	if end > len(src) {
+		end = len(src)
+		start = end - avail + 1
+		if start < 1 {
+			start = 1
+		}
+	}
+	code := strings.Join(src[start-1:end], "\n")
+	colored := highlight(code, f.File, m.theme.Chroma)
+	cl := strings.Split(colored, "\n")
+	gutterW := len(fmt.Sprintf("%d", end))
+	out := make([]string, 0, len(cl))
+	for i, ln := range cl {
+		n := start + i
+		marker := " "
+		g := m.styles.detailKey.Render(fmt.Sprintf("%*d", gutterW, n))
+		if n == f.Line {
+			marker = "▶"
+			g = lipgloss.NewStyle().Bold(true).Foreground(m.theme.Accent).Render(fmt.Sprintf("%*d", gutterW, n))
+		}
+		out = append(out, ansi.Truncate(fmt.Sprintf("%s %s │ %s", marker, g, ln), width, "…"))
+	}
+	return out
 }
 
 type tierCounts struct{ stale, closed, gone, open, unknown int }

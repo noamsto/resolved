@@ -21,6 +21,7 @@ type Theme struct {
 	Gone    color.Color
 	Open    color.Color
 	Unknown color.Color
+	Chroma  string // chroma style name for syntax highlighting
 }
 
 func c(hex string) color.Color { return lipgloss.Color(hex) }
@@ -32,6 +33,7 @@ func Mocha() Theme {
 		SelBg: c("#45475a"), SelFg: c("#cdd6f4"), Snippet: c("#a6adc8"),
 		Stale: c("#f38ba8"), Closed: c("#6c7086"), Gone: c("#fab387"),
 		Open: c("#a6e3a1"), Unknown: c("#585b70"),
+		Chroma: "catppuccin-mocha",
 	}
 }
 
@@ -42,6 +44,7 @@ func Latte() Theme {
 		SelBg: c("#bcc0cc"), SelFg: c("#4c4f69"), Snippet: c("#6c6f85"),
 		Stale: c("#d20f39"), Closed: c("#9ca0b0"), Gone: c("#fe640b"),
 		Open: c("#40a02b"), Unknown: c("#acb0be"),
+		Chroma: "catppuccin-latte",
 	}
 }
 
@@ -51,6 +54,7 @@ func Frappe() Theme {
 		SelBg: c("#51576d"), SelFg: c("#c6d0f5"), Snippet: c("#a5adce"),
 		Stale: c("#e78284"), Closed: c("#737994"), Gone: c("#ef9f76"),
 		Open: c("#a6d189"), Unknown: c("#626880"),
+		Chroma: "catppuccin-frappe",
 	}
 }
 
@@ -60,6 +64,7 @@ func Macchiato() Theme {
 		SelBg: c("#494d64"), SelFg: c("#cad3f5"), Snippet: c("#a5adcb"),
 		Stale: c("#ed8796"), Closed: c("#6e738d"), Gone: c("#f5a97f"),
 		Open: c("#a6da95"), Unknown: c("#5b6078"),
+		Chroma: "catppuccin-macchiato",
 	}
 }
 
