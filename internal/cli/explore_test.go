@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"context"
 	"testing"
 
 	"github.com/noamsto/resolved/internal/model"
@@ -24,5 +23,4 @@ func TestExploreFindings(t *testing.T) {
 	if len(findings) != 1 || findings[0].Tier != model.TierStale {
 		t.Fatalf("unexpected findings: %+v", findings)
 	}
-	_ = context.Background()
 }

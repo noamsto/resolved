@@ -40,6 +40,7 @@ func editorCmd(file string, line int) tea.Cmd {
 	if editor == "" {
 		editor = "vi"
 	}
+	// +N line syntax works for vi/vim/nvim/hx; emacs/nano use different flags.
 	c := exec.Command(editor, fmt.Sprintf("+%d", line), file)
 	return tea.ExecProcess(c, func(err error) tea.Msg {
 		return tui.EditorDone(err)
@@ -82,7 +83,11 @@ func init() {
 			deps := tui.Deps{
 				OpenURL:   openInBrowser,
 				EditorCmd: editorCmd,
-				Rescan:    func() ([]model.Finding, error) { return exploreFindings(cfg) },
+				Rescan: func() ([]model.Finding, error) {
+					rc := cfg
+					rc.noCache = true // explicit refresh always re-queries GitHub
+					return exploreFindings(rc)
+				},
 			}
 			p := tea.NewProgram(tui.New(findings, deps), tea.WithAltScreen())
 			_, err = p.Run()
