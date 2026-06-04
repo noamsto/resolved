@@ -30,7 +30,9 @@ See `resolved scan --help` for all flags.
 
 ### explore (TUI)
 
-`resolved explore` opens an interactive browser of findings grouped by tier
-(stale first). Keys: `j`/`k` move, `enter` opens the issue/PR in your browser,
-`e` opens the source line in `$EDITOR`, `r` re-runs the scan, `q` quits.
-Requires an interactive terminal.
+`resolved explore` opens an interactive two-pane browser: a tier-sorted list of
+references on the left (stale first, color-coded) and a detail pane on the right
+showing the selected reference's title, state, location, URL, triggering keyword,
+and the source comment line. Keys: `j`/`k` move, `enter` opens the issue/PR in
+your browser, `e` opens the source line in `$EDITOR`, `r` re-scans (bypassing the
+cache), `q` quits. Requires an interactive terminal.
