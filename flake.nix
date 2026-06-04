@@ -1,11 +1,25 @@
 {
-  description = "resolved CLI dev environment";
-  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-  inputs.flake-utils.url = "github:numtide/flake-utils";
-  outputs = { self, nixpkgs, flake-utils }:
-    flake-utils.lib.eachDefaultSystem (system:
-      let pkgs = import nixpkgs { inherit system; };
-      in {
+  description = "resolved — scan code comments for stale GitHub issue/PR references";
+
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    flake-parts.url = "github:hercules-ci/flake-parts";
+  };
+
+  outputs = inputs@{ flake-parts, ... }:
+    flake-parts.lib.mkFlake { inherit inputs; } {
+      systems = [ "x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin" ];
+
+      perSystem = { pkgs, ... }: {
+        packages.default = pkgs.buildGoModule {
+          pname = "resolved";
+          version = "0.1.0";
+          src = ./.;
+          vendorHash = "sha256-mAZMRjFoy8pe41PiRkCRmQaLFbP/ArKcKyk2ZVOt08c=";
+          env.CGO_ENABLED = "1"; # tree-sitter needs cgo
+          ldflags = [ "-s" "-w" ];
+        };
+
         devShells.default = pkgs.mkShell {
           packages = [
             pkgs.go
@@ -17,12 +31,6 @@
             pkgs.git
           ];
         };
-        packages.default = pkgs.buildGoModule {
-          pname = "resolved";
-          version = "0.1.0";
-          src = ./.;
-          vendorHash = null; # set after first `nix build` reports the hash
-          env.CGO_ENABLED = "1";
-        };
-      });
+      };
+    };
 }
