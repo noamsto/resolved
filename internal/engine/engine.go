@@ -53,11 +53,16 @@ func Run(ctx context.Context, opts Options) (Result, error) {
 		return Result{}, err
 	}
 
-	res := Result{Summary: Summary{Scanned: scanned, Refs: len(refs)}}
+	res := Result{Summary: Summary{Scanned: scanned}}
 	for _, r := range refs {
 		st := statuses[r.Key()]
 		if st.State == "" {
 			st.State = "unknown"
+		}
+		if r.Kind == model.KindBare && st.State == "gone" {
+			// A bare #n pointing at an issue that never existed wasn't an
+			// issue reference; explicit URL/owner-repo refs stay reported.
+			continue
 		}
 		tier := model.ClassifyTier(st.State, r.Keyword)
 		res.Findings = append(res.Findings, model.Finding{Reference: r, Status: st, Tier: tier})
@@ -74,6 +79,7 @@ func Run(ctx context.Context, opts Options) (Result, error) {
 			res.Summary.Unknown++
 		}
 	}
+	res.Summary.Refs = len(res.Findings)
 	return res, nil
 }
 

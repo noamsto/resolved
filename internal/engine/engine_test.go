@@ -85,6 +85,29 @@ func TestRunCountsGone(t *testing.T) {
 	}
 }
 
+func TestRunSuppressesGoneBareRefs(t *testing.T) {
+	dir := t.TempDir()
+	f := writeFile(t, dir, "a.go",
+		"package main\n// see #9 which never existed\nfunc main(){}\n")
+	fetcher := &fakeFetcher{statuses: map[string]model.Status{
+		"o/r#9": {State: "gone"},
+	}}
+	res, err := Run(context.Background(), Options{
+		Targets: []string{f}, Keywords: []string{"TODO"},
+		Owner: "o", Repo: "r",
+		Cache: cache.New(t.TempDir()), GitHub: fetcher,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res.Findings) != 0 {
+		t.Fatalf("bare ref resolving to gone should be suppressed, got %+v", res.Findings)
+	}
+	if res.Summary.Refs != 0 || res.Summary.Gone != 0 {
+		t.Fatalf("summary should not count suppressed bare refs: %+v", res.Summary)
+	}
+}
+
 func TestRunDedupesAndUsesCache(t *testing.T) {
 	dir := t.TempDir()
 	f := writeFile(t, dir, "a.go",
