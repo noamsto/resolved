@@ -39,8 +39,12 @@ func (m Model) renderAll() string {
 
 func (m Model) renderHeader(width int) string {
 	s := m.summary()
-	line := fmt.Sprintf("resolved · %d refs · %d stale · %d closed · %d open",
-		len(m.findings), s.stale, s.closed, s.open)
+	line := fmt.Sprintf("resolved · %d refs · %d stale · %d closed · %d open · %d gone",
+		len(m.findings), s.stale, s.closed, s.open, s.gone)
+	if s.unknown > 0 {
+		line += fmt.Sprintf(" · %d unknown", s.unknown)
+	}
+	line += "  · sort: " + m.mode.label()
 	return m.styles.header.Width(width).Render(line)
 }
 
@@ -102,7 +106,7 @@ func (m Model) renderDetail(width int) string {
 	return strings.Join(lines, "\n")
 }
 
-type tierCounts struct{ stale, closed, open int }
+type tierCounts struct{ stale, closed, gone, open, unknown int }
 
 func (m Model) summary() tierCounts {
 	var c tierCounts
@@ -112,8 +116,12 @@ func (m Model) summary() tierCounts {
 			c.stale++
 		case model.TierClosed:
 			c.closed++
+		case model.TierGone:
+			c.gone++
 		case model.TierOpen:
 			c.open++
+		default:
+			c.unknown++
 		}
 	}
 	return c

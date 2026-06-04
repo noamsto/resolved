@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/noamsto/resolved/internal/model"
@@ -233,6 +234,76 @@ func TestViewRendersHeaderListDetail(t *testing.T) {
 		if !strings.Contains(out, want) {
 			t.Errorf("view missing %q in:\n%s", want, out)
 		}
+	}
+}
+
+func mkF(file string, line int, tier model.Tier, updated time.Time) model.Finding {
+	return model.Finding{
+		Reference: model.Reference{File: file, Line: line, Owner: "o", Repo: "r", Number: line},
+		Status:    model.Status{UpdatedAt: updated},
+		Tier:      tier,
+	}
+}
+
+func TestSortTierThenRecency(t *testing.T) {
+	old := time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
+	recent := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	in := []model.Finding{
+		mkF("a.go", 1, model.TierOpen, recent),
+		mkF("b.go", 2, model.TierStale, old),
+		mkF("c.go", 3, model.TierStale, recent),
+	}
+	out := sortFindings(in, modeTier)
+	if out[0].Tier != model.TierStale || out[1].Tier != model.TierStale {
+		t.Fatalf("stale should come first: %+v", out)
+	}
+	if !out[0].UpdatedAt.Equal(recent) {
+		t.Fatalf("within stale, recent should precede old: %+v", out)
+	}
+}
+
+func TestSortRecencyFlat(t *testing.T) {
+	old := time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
+	recent := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	in := []model.Finding{
+		mkF("a.go", 1, model.TierStale, old),
+		mkF("b.go", 2, model.TierOpen, recent),
+	}
+	out := sortFindings(in, modeRecency)
+	if !out[0].UpdatedAt.Equal(recent) {
+		t.Fatalf("recency mode: newest first regardless of tier: %+v", out)
+	}
+}
+
+func TestSKeyCyclesMode(t *testing.T) {
+	m := New(fixture(), Deps{}, Mocha())
+	if m.mode != modeTier {
+		t.Fatalf("default mode = %v, want tier", m.mode)
+	}
+	nm, _ := m.Update(tea.KeyPressMsg{Code: 's', Text: "s"})
+	m = nm.(Model)
+	if m.mode != modeFile {
+		t.Fatalf("after s, mode = %v, want file", m.mode)
+	}
+	nm, _ = m.Update(tea.KeyPressMsg{Code: 's', Text: "s"})
+	m = nm.(Model)
+	nm, _ = m.Update(tea.KeyPressMsg{Code: 's', Text: "s"})
+	m = nm.(Model)
+	if m.mode != modeTier {
+		t.Fatalf("after 3x s, mode = %v, want tier (cycled)", m.mode)
+	}
+}
+
+func TestHeaderShowsGoneAndMode(t *testing.T) {
+	m := New([]model.Finding{mkF("a.go", 1, model.TierGone, time.Time{})}, Deps{}, Mocha())
+	nm, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 30})
+	m = nm.(Model)
+	out := strip(m.View().Content)
+	if !strings.Contains(out, "1 gone") {
+		t.Fatalf("header missing gone count:\n%s", out)
+	}
+	if !strings.Contains(out, "sort:") {
+		t.Fatalf("header missing sort mode:\n%s", out)
 	}
 }
 

@@ -8,6 +8,25 @@ import (
 	"github.com/noamsto/resolved/internal/model"
 )
 
+type sortMode int
+
+const (
+	modeTier sortMode = iota
+	modeFile
+	modeRecency
+)
+
+func (s sortMode) label() string {
+	switch s {
+	case modeFile:
+		return "by file"
+	case modeRecency:
+		return "recency"
+	default:
+		return "tier"
+	}
+}
+
 // Deps are the injectable side-effects (real ones wired by the explore command;
 // stubbed in tests).
 type Deps struct {
@@ -41,12 +60,13 @@ type Model struct {
 	sources    *sourceCache
 	styles     Styles
 	theme      Theme
+	mode       sortMode
 }
 
 // New builds a Model with findings sorted by tier (stale first).
 func New(findings []model.Finding, deps Deps, theme Theme) Model {
 	return Model{
-		findings: sortFindings(findings),
+		findings: sortFindings(findings, modeTier),
 		deps:     deps,
 		sources:  newSourceCache(),
 		theme:    theme,
@@ -91,12 +111,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.status = "refreshing…"
 				return m, m.rescanCmd()
 			}
+		case "s":
+			m.mode = (m.mode + 1) % 3
+			m.findings = sortFindings(m.findings, m.mode)
+			m.cursor = 0
+			m.listOffset = 0
 		}
 	case rescanDoneMsg:
 		if msg.err != nil {
 			m.status = "refresh failed: " + msg.err.Error()
 		} else {
-			m.findings = sortFindings(msg.findings)
+			m.findings = sortFindings(msg.findings, m.mode)
 			if m.cursor >= len(m.findings) {
 				m.cursor = max(0, len(m.findings)-1)
 			}
@@ -130,18 +155,45 @@ func tierRank(t model.Tier) int {
 	}
 }
 
-// sortFindings orders by tier (stale first), then file, then line.
-func sortFindings(in []model.Finding) []model.Finding {
+func locLess(a, b model.Finding) bool {
+	if a.File != b.File {
+		return a.File < b.File
+	}
+	return a.Line < b.Line
+}
+
+// sortFindings returns a copy ordered per mode.
+func sortFindings(in []model.Finding, mode sortMode) []model.Finding {
 	out := make([]model.Finding, len(in))
 	copy(out, in)
 	sort.SliceStable(out, func(i, j int) bool {
-		if ri, rj := tierRank(out[i].Tier), tierRank(out[j].Tier); ri != rj {
-			return ri < rj
+		a, b := out[i], out[j]
+		switch mode {
+		case modeRecency:
+			if !a.UpdatedAt.Equal(b.UpdatedAt) {
+				return a.UpdatedAt.After(b.UpdatedAt)
+			}
+			return locLess(a, b)
+		case modeFile:
+			if a.File != b.File {
+				return a.File < b.File
+			}
+			if ra, rb := tierRank(a.Tier), tierRank(b.Tier); ra != rb {
+				return ra < rb
+			}
+			if !a.UpdatedAt.Equal(b.UpdatedAt) {
+				return a.UpdatedAt.After(b.UpdatedAt)
+			}
+			return a.Line < b.Line
+		default: // modeTier
+			if ra, rb := tierRank(a.Tier), tierRank(b.Tier); ra != rb {
+				return ra < rb
+			}
+			if !a.UpdatedAt.Equal(b.UpdatedAt) {
+				return a.UpdatedAt.After(b.UpdatedAt)
+			}
+			return locLess(a, b)
 		}
-		if out[i].File != out[j].File {
-			return out[i].File < out[j].File
-		}
-		return out[i].Line < out[j].Line
 	})
 	return out
 }
