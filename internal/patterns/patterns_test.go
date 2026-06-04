@@ -68,6 +68,26 @@ func TestExtractBareStandaloneForms(t *testing.T) {
 	}
 }
 
+func TestExtractBareRejectsSectionHeaders(t *testing.T) {
+	cases := []string{
+		"// #7 — generic dispatch error on plan-path is best-effort; no panic.",
+		"# #3 section in a shell comment",
+		"/* #2 block section */",
+		"-- #4 sql section",
+	}
+	for _, text := range cases {
+		if got := Extract(text, "o", "r"); len(got) != 0 {
+			t.Errorf("Extract(%q) = %+v, want none (section-header style)", text, got)
+		}
+	}
+	// words before the number => still a ref; and a raw "#5" (check command input) still parses
+	for _, text := range []string{"// see #42 for details", "#5"} {
+		if got := Extract(text, "o", "r"); len(got) != 1 {
+			t.Errorf("Extract(%q) = %+v, want exactly one match", text, got)
+		}
+	}
+}
+
 func TestDetectKeyword(t *testing.T) {
 	if kw := DetectKeyword("// TODO: thing", []string{"TODO", "FIXME"}); kw != "TODO" {
 		t.Fatalf("got %q", kw)

@@ -3,6 +3,7 @@ package patterns
 import (
 	"regexp"
 	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/noamsto/resolved/internal/model"
@@ -84,6 +85,14 @@ func Extract(text, originOwner, originRepo string) []Match {
 				default:
 					continue
 				}
+			}
+			// Section-numbering style: "#N" as the comment's first token
+			// ("// #7 — case ...") is a header, not an issue ref. Real refs
+			// have words before the number. An empty prefix (raw "#5" from
+			// the check command) is allowed.
+			if prefix := text[:m[0]]; prefix != "" &&
+				strings.TrimLeft(prefix, " \t\r\n/*#!-") == "" {
+				continue
 			}
 			if !free(m[0], m[1]) {
 				continue
