@@ -11,7 +11,7 @@ import (
 var (
 	urlRe   = regexp.MustCompile(`https?://github\.com/([\w.-]+)/([\w.-]+)/(issues|pull)/(\d+)`)
 	shortRe = regexp.MustCompile(`\b([\w.-]+)/([\w.-]+)#(\d+)\b`)
-	bareRe  = regexp.MustCompile(`#(\d+)\b`)
+	bareRe  = regexp.MustCompile(`#([1-9]\d*)\b`)
 )
 
 // Match is a reference found in a single piece of comment text. Col is the
@@ -75,6 +75,16 @@ func Extract(text, originOwner, originRepo string) []Match {
 
 	if originOwner != "" && originRepo != "" {
 		for _, m := range bareRe.FindAllStringSubmatchIndex(text, -1) {
+			// Standalone tokens only: a real issue ref is written like
+			// "TODO(#42)", "see #42", or "[#42]" — not glued into a word,
+			// hex color, or format pattern.
+			if m[0] > 0 {
+				switch text[m[0]-1] {
+				case ' ', '\t', '(', '[':
+				default:
+					continue
+				}
+			}
 			if !free(m[0], m[1]) {
 				continue
 			}
