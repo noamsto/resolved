@@ -20,6 +20,9 @@ type Deps struct {
 // editorDoneMsg is delivered when the external editor process exits.
 type editorDoneMsg struct{ err error }
 
+// EditorDone wraps an editor-process exit error into the model's done message.
+func EditorDone(err error) tea.Msg { return editorDoneMsg{err: err} }
+
 // rescanDoneMsg carries the result of an async rescan.
 type rescanDoneMsg struct {
 	findings []model.Finding
