@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/noamsto/resolved/internal/model"
+	tui "github.com/noamsto/resolved/internal/tui"
 )
 
 func TestExploreFindings(t *testing.T) {
@@ -22,5 +23,14 @@ func TestExploreFindings(t *testing.T) {
 	}
 	if len(findings) != 1 || findings[0].Tier != model.TierStale {
 		t.Fatalf("unexpected findings: %+v", findings)
+	}
+}
+
+func TestThemeByNameInvalid(t *testing.T) {
+	if _, err := tui.ThemeByName("nope"); err == nil {
+		t.Fatal("expected error for invalid theme")
+	}
+	if _, err := tui.ThemeByName("mocha"); err != nil {
+		t.Fatalf("mocha should resolve: %v", err)
 	}
 }

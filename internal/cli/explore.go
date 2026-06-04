@@ -49,11 +49,12 @@ func editorCmd(file string, line int) tea.Cmd {
 
 func init() {
 	var (
-		exclude  []string
-		keywords []string
-		staged   bool
-		diffRef  string
-		noCache  bool
+		exclude   []string
+		keywords  []string
+		staged    bool
+		diffRef   string
+		noCache   bool
+		themeName string
 	)
 	cmd := &cobra.Command{
 		Use:   "explore [paths...]",
@@ -80,6 +81,11 @@ func init() {
 				return err
 			}
 
+			theme, err := tui.ThemeByName(themeName)
+			if err != nil {
+				return err
+			}
+
 			deps := tui.Deps{
 				OpenURL:   openInBrowser,
 				EditorCmd: editorCmd,
@@ -89,7 +95,7 @@ func init() {
 					return exploreFindings(rc)
 				},
 			}
-			p := tea.NewProgram(tui.New(findings, deps))
+			p := tea.NewProgram(tui.New(findings, deps, theme))
 			_, err = p.Run()
 			return err
 		},
@@ -99,5 +105,6 @@ func init() {
 	cmd.Flags().StringSliceVar(&exclude, "exclude", nil, "glob(s) to exclude by base name")
 	cmd.Flags().StringSliceVar(&keywords, "keywords", nil, "stale keywords (default TODO,FIXME,HACK,XXX,BUG)")
 	cmd.Flags().BoolVar(&noCache, "no-cache", false, "bypass the on-disk cache")
+	cmd.Flags().StringVar(&themeName, "theme", "mocha", "color theme: mocha|latte|frappe|macchiato")
 	rootCmd.AddCommand(cmd)
 }
