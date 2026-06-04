@@ -28,13 +28,12 @@ func (m Model) renderAll() string {
 	}
 
 	ph := m.listHeight()
-	// pane.Width includes the horizontal padding (Padding(0,1) => 2 cells), so
-	// the content the renderers produce must be 2 narrower to avoid wrapping.
-	listInner := listW - 2
+	frame := m.styles.pane.GetHorizontalFrameSize() // border + padding (l+r)
+	listInner := listW - frame
 	if listInner < 6 {
 		listInner = 6
 	}
-	detailInner := detailW - 2
+	detailInner := detailW - frame
 	if detailInner < 6 {
 		detailInner = 6
 	}

@@ -426,3 +426,24 @@ func TestFindingRowFitsWidth(t *testing.T) {
 		t.Fatalf("row display width = %d, want exactly 40 (no overflow/underflow)", w)
 	}
 }
+
+func TestListRowsDoNotWrap(t *testing.T) {
+	in := []model.Finding{
+		mkF("/tmp/resolved-demo/demo.go", 3, model.TierStale, time.Time{}),
+		mkF("/tmp/resolved-demo/other.go", 3, model.TierStale, time.Time{}),
+	}
+	m := New(in, Deps{}, Mocha())
+	nm, _ := m.Update(tea.WindowSizeMsg{Width: 130, Height: 22})
+	m = nm.(Model)
+
+	out := strip(m.View().Content)
+	for _, line := range strings.Split(out, "\n") {
+		// A list line that contains a ref ("o/r#") must also contain a tier
+		// icon on the SAME line; otherwise the row wrapped.
+		if strings.Contains(line, "o/r#") {
+			if !strings.ContainsAny(line, "◆●○✗?") {
+				t.Fatalf("ref wrapped onto its own line (no tier icon): %q", line)
+			}
+		}
+	}
+}
