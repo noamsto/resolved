@@ -5,7 +5,7 @@ import (
 	"sort"
 	"strings"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	"github.com/noamsto/resolved/internal/model"
 )
 
@@ -48,7 +48,7 @@ func (m Model) Init() tea.Cmd { return nil }
 // Update handles key and async messages. Side-effects go through m.deps.
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		switch msg.String() {
 		case "q", "esc", "ctrl+c":
 			m.quitting = true
@@ -152,8 +152,8 @@ func issueURL(f model.Finding) string {
 	return fmt.Sprintf("https://github.com/%s/%s/%s/%d", f.Owner, f.Repo, kind, f.Number)
 }
 
-// View renders the finding list with a cursor, plus a help/status footer.
-func (m Model) View() string {
+// render produces the plain-text body of the TUI.
+func (m Model) render() string {
 	if m.quitting {
 		return ""
 	}
@@ -174,4 +174,12 @@ func (m Model) View() string {
 		fmt.Fprintf(&b, "\n%s\n", m.status)
 	}
 	return b.String()
+}
+
+// View renders the model. AltScreen is declared on the View in v2.
+func (m Model) View() tea.View {
+	var v tea.View
+	v.SetContent(m.render())
+	v.AltScreen = true
+	return v
 }

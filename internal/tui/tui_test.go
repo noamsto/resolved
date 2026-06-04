@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	"github.com/noamsto/resolved/internal/model"
 )
 
@@ -29,7 +29,7 @@ func TestNewSortsStaleFirst(t *testing.T) {
 
 func TestViewShowsLocationsAndCursor(t *testing.T) {
 	m := New(fixture(), Deps{})
-	out := m.View()
+	out := m.View().Content
 	if !strings.Contains(out, "a.go:2") {
 		t.Fatalf("view missing a.go:2:\n%s", out)
 	}
@@ -52,14 +52,14 @@ func TestIssueURL(t *testing.T) {
 func TestUpdateNavigation(t *testing.T) {
 	m := New(fixture(), Deps{})
 
-	down := tea.KeyMsg{Type: tea.KeyDown}
+	down := tea.KeyPressMsg{Code: tea.KeyDown}
 	nm, _ := m.Update(down)
 	m = nm.(Model)
 	if m.cursor != 1 {
 		t.Fatalf("after down, cursor = %d, want 1", m.cursor)
 	}
 
-	nm, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+	nm, _ = m.Update(tea.KeyPressMsg{Code: 'j', Text: "j"})
 	m = nm.(Model)
 	if m.cursor != 2 {
 		t.Fatalf("after j, cursor = %d, want 2", m.cursor)
@@ -73,11 +73,11 @@ func TestUpdateNavigation(t *testing.T) {
 	}
 
 	// up / k move back, clamped at 0
-	nm, _ = m.Update(tea.KeyMsg{Type: tea.KeyUp})
+	nm, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyUp})
 	m = nm.(Model)
-	nm, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
+	nm, _ = m.Update(tea.KeyPressMsg{Code: 'k', Text: "k"})
 	m = nm.(Model)
-	nm, _ = m.Update(tea.KeyMsg{Type: tea.KeyUp})
+	nm, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyUp})
 	m = nm.(Model)
 	if m.cursor != 0 {
 		t.Fatalf("cursor underran start: %d", m.cursor)
@@ -86,7 +86,7 @@ func TestUpdateNavigation(t *testing.T) {
 
 func TestUpdateQuit(t *testing.T) {
 	m := New(fixture(), Deps{})
-	nm, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}})
+	nm, cmd := m.Update(tea.KeyPressMsg{Code: 'q', Text: "q"})
 	m = nm.(Model)
 	if !m.quitting {
 		t.Fatal("q should set quitting")
@@ -105,7 +105,7 @@ func TestEnterOpensIssueURL(t *testing.T) {
 		OpenURL: func(url string) error { opened = url; return nil },
 	})
 	// cursor at 0 -> stale finding o/r#1 (issue)
-	nm, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	nm, _ := m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
 	m = nm.(Model)
 	if opened != "https://github.com/o/r/issues/1" {
 		t.Fatalf("opened = %q", opened)
@@ -125,7 +125,7 @@ func TestEditInvokesEditorCmd(t *testing.T) {
 		},
 	})
 	// cursor at 0 -> a.go:2 after sorting (stale finding)
-	nm, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'e'}})
+	nm, _ := m.Update(tea.KeyPressMsg{Code: 'e', Text: "e"})
 	_ = nm.(Model)
 	if gotFile != "a.go" || gotLine != 2 {
 		t.Fatalf("editor invoked with %s:%d, want a.go:2", gotFile, gotLine)
@@ -152,7 +152,7 @@ func TestRefreshReplacesFindings(t *testing.T) {
 	})
 
 	// pressing r returns a command that performs the rescan
-	nm, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
+	nm, cmd := m.Update(tea.KeyPressMsg{Code: 'r', Text: "r"})
 	m = nm.(Model)
 	if cmd == nil {
 		t.Fatal("r should return a rescan command")

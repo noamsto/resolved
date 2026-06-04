@@ -6,7 +6,7 @@ import (
 	"os/exec"
 	"runtime"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	"github.com/noamsto/resolved/internal/model"
 	"github.com/noamsto/resolved/internal/tui"
 	"github.com/spf13/cobra"
@@ -89,7 +89,7 @@ func init() {
 					return exploreFindings(rc)
 				},
 			}
-			p := tea.NewProgram(tui.New(findings, deps), tea.WithAltScreen())
+			p := tea.NewProgram(tui.New(findings, deps))
 			_, err = p.Run()
 			return err
 		},
