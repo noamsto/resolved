@@ -75,7 +75,7 @@ func (m Model) renderHeader(width int) string {
 }
 
 func (m Model) renderFooter(width int) string {
-	help := "j/k move · ⏎ open · e edit · r refresh · q quit"
+	help := "j/k move · s sort · ⏎ open · e edit · r refresh · q quit"
 	if m.status != "" {
 		help = m.status + "   " + help
 	}

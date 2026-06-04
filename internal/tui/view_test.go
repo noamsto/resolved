@@ -38,3 +38,12 @@ func TestDetailShowsTildePath(t *testing.T) {
 		t.Fatalf("home path should be collapsed, not shown in full:\n%s", out)
 	}
 }
+
+func TestFooterAdvertisesSortKey(t *testing.T) {
+	m := New(fixture(), Deps{}, Mocha())
+	nm, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 30})
+	m = nm.(Model)
+	if !strings.Contains(strip(m.View().Content), "s sort") {
+		t.Fatalf("footer should advertise the s sort key:\n%s", strip(m.View().Content))
+	}
+}
