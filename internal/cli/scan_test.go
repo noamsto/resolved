@@ -91,3 +91,17 @@ func TestScanToResultReturnsFindings(t *testing.T) {
 		t.Fatalf("unexpected result: %+v", res.Findings)
 	}
 }
+
+func TestScanToResultBareIsOptIn(t *testing.T) {
+	// without --bare, owner/repo are blanked, so a bare ref in a comment is ignored
+	dir := t.TempDir()
+	writeTestFile(t, dir, "a.go", "package main\n// TODO see #1 maybe\nfunc main(){}\n")
+	fetcher := stubFetcher{statuses: map[string]model.Status{}}
+	res, err := scanToResult(scanConfig{dir: dir, args: []string{dir}, keywords: []string{"TODO"}, fetcher: fetcher, noCache: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res.Findings) != 0 {
+		t.Fatalf("bare ref matched without --bare: %+v", res.Findings)
+	}
+}

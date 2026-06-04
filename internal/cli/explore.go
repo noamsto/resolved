@@ -54,7 +54,7 @@ func init() {
 		staged    bool
 		diffRef   string
 		noCache   bool
-		noBare    bool
+		bare      bool
 		themeName string
 	)
 	cmd := &cobra.Command{
@@ -74,7 +74,7 @@ func init() {
 			}
 			cfg := scanConfig{
 				dir: dir, args: args, keywords: kw,
-				staged: staged, diffRef: diffRef, exclude: exclude, noCache: noCache, noBare: noBare,
+				staged: staged, diffRef: diffRef, exclude: exclude, noCache: noCache, bare: bare,
 			}
 
 			findings, err := exploreFindings(cfg)
@@ -107,7 +107,7 @@ func init() {
 	cmd.Flags().StringSliceVar(&exclude, "exclude", nil, "glob(s) to exclude by base name")
 	cmd.Flags().StringSliceVar(&keywords, "keywords", nil, "stale keywords (default TODO,FIXME,HACK,XXX,BUG)")
 	cmd.Flags().BoolVar(&noCache, "no-cache", false, "bypass the on-disk cache")
-	cmd.Flags().BoolVar(&noBare, "no-bare", false, "ignore bare #123 references (only full URLs and owner/repo#n)")
+	cmd.Flags().BoolVar(&bare, "bare", false, "also match bare #123 references against the origin repo (noisy in active repos)")
 	cmd.Flags().StringVar(&themeName, "theme", "mocha", "color theme: mocha|latte|frappe|macchiato")
 	rootCmd.AddCommand(cmd)
 }

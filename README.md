@@ -26,6 +26,10 @@ resolved explore            # interactive TUI: browse findings, open issue/edito
 Output is auto-detected: a TTY gets human output, a pipe gets JSON. Exit codes:
 `0` clean, `1` stale found (configurable via `--fail-on`), `2` tool error.
 
+Bare `#123` references (without an `owner/repo` prefix) are matched against the
+origin repo only when you pass `--bare` (disabled by default — too noisy in
+active repos). Full URLs and `owner/repo#n` forms are always resolved.
+
 See `resolved scan --help` for all flags.
 
 ### explore (TUI)
