@@ -97,22 +97,28 @@ func (m Model) renderFindingRow(f model.Finding, selected bool, width int) strin
 	if selected {
 		marker = "❯ "
 	}
-	const markerW = 2
-	const iconW = 2 // icon + trailing space
-	gap := 1
-	refW := lipgloss.Width(ref)
-	locW := width - markerW - iconW - gap - refW
-	if locW < 8 {
-		locW = 8
-	}
-
 	lineStr := fmt.Sprintf(":%d", f.Line)
-	nameBudget := locW - lipgloss.Width(lineStr)
-	if nameBudget < 3 {
-		nameBudget = 3
+
+	var locCell string
+	if m.mode == modeFile {
+		// Grouped under a file header — the path is redundant, show just the line.
+		locCell = lipgloss.NewStyle().Width(8).Render(lineStr)
+	} else {
+		const markerW = 2
+		const iconW = 2 // icon + trailing space
+		gap := 1
+		refW := lipgloss.Width(ref)
+		locW := width - markerW - iconW - gap - refW
+		if locW < 8 {
+			locW = 8
+		}
+		nameBudget := locW - lipgloss.Width(lineStr)
+		if nameBudget < 3 {
+			nameBudget = 3
+		}
+		loc := trimMid(f.File, nameBudget) + lineStr
+		locCell = lipgloss.NewStyle().Width(locW).Render(loc)
 	}
-	loc := trimMid(f.File, nameBudget) + lineStr
-	locCell := lipgloss.NewStyle().Width(locW).Render(loc)
 
 	row := marker + icon + " " + locCell + " " + ref
 	if selected {

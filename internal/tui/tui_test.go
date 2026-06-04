@@ -448,6 +448,31 @@ func TestListRowsDoNotWrap(t *testing.T) {
 	}
 }
 
+func TestGroupedRowOmitsFilePath(t *testing.T) {
+	f := mkF("some/dir/file.go", 7, model.TierOpen, time.Time{})
+	m := New([]model.Finding{f}, Deps{}, Mocha())
+	m.mode = modeFile
+	row := strip(m.renderFindingRow(f, false, 60))
+	if strings.Contains(row, "file.go") {
+		t.Fatalf("grouped row should omit the filename (it's in the header): %q", row)
+	}
+	if !strings.Contains(row, ":7") {
+		t.Fatalf("grouped row should still show the line: %q", row)
+	}
+	if !strings.Contains(row, "o/r#7") {
+		t.Fatalf("grouped row should still show the ref: %q", row)
+	}
+}
+
+func TestUngroupedRowKeepsFilePath(t *testing.T) {
+	f := mkF("some/dir/file.go", 7, model.TierOpen, time.Time{})
+	m := New([]model.Finding{f}, Deps{}, Mocha()) // modeTier
+	row := strip(m.renderFindingRow(f, false, 60))
+	if !strings.Contains(row, "file.go") {
+		t.Fatalf("non-grouped row should show the filename: %q", row)
+	}
+}
+
 func TestSelectedRowKeepsTierColor(t *testing.T) {
 	st := newStyles(Mocha())
 	if st.selectedRowFor(model.TierStale).GetForeground() != Mocha().Stale {
