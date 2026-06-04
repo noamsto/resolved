@@ -1,0 +1,104 @@
+package tui
+
+import (
+	"fmt"
+	"sort"
+	"strings"
+
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/noamsto/resolved/internal/model"
+)
+
+// Deps are the injectable side-effects (real ones wired by the explore command;
+// stubbed in tests).
+type Deps struct {
+	OpenURL   func(url string) error              // open an issue/PR in the browser
+	EditorCmd func(file string, line int) tea.Cmd // open a source line in $EDITOR
+	Rescan    func() ([]model.Finding, error)     // re-run the scan
+}
+
+// Model is the Bubble Tea model for the explore TUI.
+type Model struct {
+	findings []model.Finding
+	cursor   int
+	status   string
+	deps     Deps
+	quitting bool
+}
+
+// New builds a Model with findings sorted by tier (stale first).
+func New(findings []model.Finding, deps Deps) Model {
+	return Model{findings: sortFindings(findings), deps: deps}
+}
+
+func (m Model) Init() tea.Cmd { return nil }
+
+func tierRank(t model.Tier) int {
+	switch t {
+	case model.TierStale:
+		return 0
+	case model.TierClosed:
+		return 1
+	case model.TierGone:
+		return 2
+	case model.TierOpen:
+		return 3
+	default:
+		return 4
+	}
+}
+
+// sortFindings orders by tier (stale first), then file, then line.
+func sortFindings(in []model.Finding) []model.Finding {
+	out := make([]model.Finding, len(in))
+	copy(out, in)
+	sort.SliceStable(out, func(i, j int) bool {
+		if ri, rj := tierRank(out[i].Tier), tierRank(out[j].Tier); ri != rj {
+			return ri < rj
+		}
+		if out[i].File != out[j].File {
+			return out[i].File < out[j].File
+		}
+		return out[i].Line < out[j].Line
+	})
+	return out
+}
+
+func (m Model) current() (model.Finding, bool) {
+	if m.cursor < 0 || m.cursor >= len(m.findings) {
+		return model.Finding{}, false
+	}
+	return m.findings[m.cursor], true
+}
+
+func issueURL(f model.Finding) string {
+	kind := "issues"
+	if f.Type == model.TypePR {
+		kind = "pull"
+	}
+	return fmt.Sprintf("https://github.com/%s/%s/%s/%d", f.Owner, f.Repo, kind, f.Number)
+}
+
+// View renders the finding list with a cursor, plus a help/status footer.
+func (m Model) View() string {
+	if m.quitting {
+		return ""
+	}
+	var b strings.Builder
+	b.WriteString("resolved — explore  (j/k move · enter open issue · e edit · r refresh · q quit)\n\n")
+	if len(m.findings) == 0 {
+		b.WriteString("  no references found\n")
+	}
+	for i, f := range m.findings {
+		cursor := "  "
+		if i == m.cursor {
+			cursor = "> "
+		}
+		fmt.Fprintf(&b, "%s[%s] %s:%d  %s/%s#%d  %s\n",
+			cursor, f.Tier.String(), f.File, f.Line, f.Owner, f.Repo, f.Number, f.Title)
+	}
+	if m.status != "" {
+		fmt.Fprintf(&b, "\n%s\n", m.status)
+	}
+	return b.String()
+}
