@@ -33,6 +33,7 @@ type Deps struct {
 	OpenURL   func(url string) error              // open an issue/PR in the browser
 	EditorCmd func(file string, line int) tea.Cmd // open a source line in $EDITOR
 	Rescan    func() ([]model.Finding, error)     // re-run the scan
+	Root      string                              // scan base dir; list paths render relative to it (empty => ~-collapsed absolute)
 }
 
 // editorDoneMsg is delivered when the external editor process exits.

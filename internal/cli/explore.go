@@ -89,6 +89,7 @@ func init() {
 			deps := tui.Deps{
 				OpenURL:   openInBrowser,
 				EditorCmd: editorCmd,
+				Root:      dir,
 				Rescan: func() ([]model.Finding, error) {
 					rc := cfg
 					rc.noCache = true // explicit refresh always re-queries GitHub
