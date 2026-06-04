@@ -27,10 +27,11 @@ func (m Model) renderAll() string {
 		detailW = 20
 	}
 
+	ph := m.listHeight()
 	body := lipgloss.JoinHorizontal(
 		lipgloss.Top,
-		paneStyle.Width(listW).Render(m.renderList(listW)),
-		paneStyle.Width(detailW).Render(m.renderDetail(detailW)),
+		paneStyle.Width(listW).Height(ph).Render(m.renderList(listW)),
+		paneStyle.Width(detailW).Height(ph).Render(m.renderDetail(detailW)),
 	)
 
 	return strings.Join([]string{header, body, footer}, "\n")
