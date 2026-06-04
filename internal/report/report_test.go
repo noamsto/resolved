@@ -3,6 +3,7 @@ package report
 import (
 	"bytes"
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/noamsto/resolved/internal/engine"
@@ -76,5 +77,23 @@ func TestRenderHumanContainsLocation(t *testing.T) {
 	RenderHuman(buf, sampleResult(), false)
 	if !bytes.Contains(buf.Bytes(), []byte("a.go:2")) {
 		t.Fatalf("human output missing location:\n%s", buf.String())
+	}
+}
+
+func TestRenderHumanReportsSkipped(t *testing.T) {
+	r := sampleResult()
+	r.Summary.Skipped = 42
+	buf := &bytes.Buffer{}
+	RenderHuman(buf, r, false)
+	if !strings.Contains(buf.String(), "42 skipped: unsupported language") {
+		t.Fatalf("summary should surface skipped files:\n%s", buf.String())
+	}
+}
+
+func TestRenderHumanOmitsZeroSkipped(t *testing.T) {
+	buf := &bytes.Buffer{}
+	RenderHuman(buf, sampleResult(), false)
+	if strings.Contains(buf.String(), "skipped") {
+		t.Fatalf("summary should not mention skipped when zero:\n%s", buf.String())
 	}
 }

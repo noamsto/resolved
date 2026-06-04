@@ -39,3 +39,9 @@ var langByExt = map[string]*sitter.Language{
 func languageFor(path string) *sitter.Language {
 	return langByExt[strings.ToLower(filepath.Ext(path))]
 }
+
+// Supported reports whether path's extension has a grammar, i.e. whether
+// Comments can extract anything from it.
+func Supported(path string) bool {
+	return languageFor(path) != nil
+}

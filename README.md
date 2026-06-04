@@ -30,6 +30,11 @@ Bare `#123` references (without an `owner/repo` prefix) are matched against the
 origin repo only when you pass `--bare` (disabled by default — too noisy in
 active repos). Full URLs and `owner/repo#n` forms are always resolved.
 
+Comments are extracted with tree-sitter; supported languages: Go, Python,
+JavaScript/JSX, TypeScript/TSX, Rust, Ruby, Java, C/C++, Bash. Files in other
+languages are skipped and counted in the summary
+(`(N skipped: unsupported language)`).
+
 See `resolved scan --help` for all flags.
 
 ### explore (TUI)

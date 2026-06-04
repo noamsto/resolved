@@ -27,6 +27,7 @@ type Options struct {
 
 type Summary struct {
 	Scanned int `json:"scanned"`
+	Skipped int `json:"skipped"` // targets with no grammar for their extension
 	Refs    int `json:"refs"`
 	Stale   int `json:"stale"`
 	Closed  int `json:"closed"`
@@ -43,7 +44,7 @@ type Result struct {
 // Run executes the full pipeline: detect -> patterns -> dedupe -> cache/github
 // -> classify -> summarize.
 func Run(ctx context.Context, opts Options) (Result, error) {
-	refs, scanned, err := scanTargets(opts)
+	refs, scanned, skipped, err := scanTargets(opts)
 	if err != nil {
 		return Result{}, err
 	}
@@ -53,7 +54,7 @@ func Run(ctx context.Context, opts Options) (Result, error) {
 		return Result{}, err
 	}
 
-	res := Result{Summary: Summary{Scanned: scanned}}
+	res := Result{Summary: Summary{Scanned: scanned, Skipped: skipped}}
 	for _, r := range refs {
 		st := statuses[r.Key()]
 		if st.State == "" {
@@ -84,17 +85,23 @@ func Run(ctx context.Context, opts Options) (Result, error) {
 }
 
 // scanTargets reads every target file and extracts references with keywords.
-func scanTargets(opts Options) ([]model.Reference, int, error) {
+// skipped counts targets with no grammar — surfaced so an all-unsupported repo
+// doesn't read as a clean scan.
+func scanTargets(opts Options) ([]model.Reference, int, int, error) {
 	var refs []model.Reference
-	scanned := 0
+	scanned, skipped := 0, 0
 	for _, path := range opts.Targets {
+		if !detect.Supported(path) {
+			skipped++
+			continue
+		}
 		src, err := os.ReadFile(path)
 		if err != nil {
 			continue // unreadable file: skip
 		}
 		comments, err := detect.Comments(path, src)
 		if err != nil {
-			return nil, 0, err
+			return nil, 0, 0, err
 		}
 		scanned++
 		for _, cm := range comments {
@@ -108,7 +115,7 @@ func scanTargets(opts Options) ([]model.Reference, int, error) {
 			}
 		}
 	}
-	return refs, scanned, nil
+	return refs, scanned, skipped, nil
 }
 
 // resolveStatuses returns a status per reference key, using the cache first and
