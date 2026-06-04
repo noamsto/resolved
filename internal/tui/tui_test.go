@@ -142,3 +142,43 @@ func TestEditorDoneSetsErrorStatus(t *testing.T) {
 }
 
 var errTest = fmt.Errorf("boom")
+
+func TestRefreshReplacesFindings(t *testing.T) {
+	fresh := []model.Finding{
+		{Reference: model.Reference{File: "b.go", Line: 1, Owner: "o", Repo: "r", Number: 9}, Tier: model.TierOpen},
+	}
+	m := New(fixture(), Deps{
+		Rescan: func() ([]model.Finding, error) { return fresh, nil },
+	})
+
+	// pressing r returns a command that performs the rescan
+	nm, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
+	m = nm.(Model)
+	if cmd == nil {
+		t.Fatal("r should return a rescan command")
+	}
+	msg := cmd()
+	done, ok := msg.(rescanDoneMsg)
+	if !ok {
+		t.Fatalf("rescan command produced %T, want rescanDoneMsg", msg)
+	}
+
+	// feeding the done message back replaces the findings
+	nm, _ = m.Update(done)
+	m = nm.(Model)
+	if len(m.findings) != 1 || m.findings[0].Number != 9 {
+		t.Fatalf("findings not replaced: %+v", m.findings)
+	}
+	if !strings.Contains(m.status, "refreshed") {
+		t.Fatalf("status = %q, want refreshed", m.status)
+	}
+}
+
+func TestRefreshErrorSetsStatus(t *testing.T) {
+	m := New(fixture(), Deps{})
+	nm, _ := m.Update(rescanDoneMsg{err: errTest})
+	m = nm.(Model)
+	if !strings.Contains(m.status, "refresh failed") {
+		t.Fatalf("status = %q", m.status)
+	}
+}

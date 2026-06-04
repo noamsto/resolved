@@ -20,6 +20,12 @@ type Deps struct {
 // editorDoneMsg is delivered when the external editor process exits.
 type editorDoneMsg struct{ err error }
 
+// rescanDoneMsg carries the result of an async rescan.
+type rescanDoneMsg struct {
+	findings []model.Finding
+	err      error
+}
+
 // Model is the Bubble Tea model for the explore TUI.
 type Model struct {
 	findings []model.Finding
@@ -66,6 +72,21 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.status = fmt.Sprintf("opening %s:%d", f.File, f.Line)
 				return m, m.deps.EditorCmd(f.File, f.Line)
 			}
+		case "r":
+			if m.deps.Rescan != nil {
+				m.status = "refreshing…"
+				return m, m.rescanCmd()
+			}
+		}
+	case rescanDoneMsg:
+		if msg.err != nil {
+			m.status = "refresh failed: " + msg.err.Error()
+		} else {
+			m.findings = sortFindings(msg.findings)
+			if m.cursor >= len(m.findings) {
+				m.cursor = max(0, len(m.findings)-1)
+			}
+			m.status = fmt.Sprintf("refreshed — %d refs", len(m.findings))
 		}
 	case editorDoneMsg:
 		if msg.err != nil {
@@ -104,6 +125,13 @@ func sortFindings(in []model.Finding) []model.Finding {
 		return out[i].Line < out[j].Line
 	})
 	return out
+}
+
+func (m Model) rescanCmd() tea.Cmd {
+	return func() tea.Msg {
+		fs, err := m.deps.Rescan()
+		return rescanDoneMsg{findings: fs, err: err}
+	}
 }
 
 func (m Model) current() (model.Finding, bool) {
