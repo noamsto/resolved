@@ -15,7 +15,7 @@
           pname = "resolved";
           version = "0.1.0";
           src = ./.;
-          vendorHash = "sha256-mAZMRjFoy8pe41PiRkCRmQaLFbP/ArKcKyk2ZVOt08c=";
+          vendorHash = "sha256-UFtvqOD3n/0zoFqOv20o79RqTnDSfFxlCkQKkcW1dxk=";
           env.CGO_ENABLED = "1"; # tree-sitter needs cgo
           ldflags = [ "-s" "-w" ];
         };
