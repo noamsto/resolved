@@ -34,8 +34,10 @@ See `resolved scan --help` for all flags.
 references on the left (stale first, color-coded) and a detail pane on the right
 showing the selected reference's title, state, location, URL, triggering keyword,
 and the source comment line. Keys: `j`/`k` move, `enter` opens the issue/PR in
-your browser, `e` opens the source line in `$EDITOR`, `r` re-scans (bypassing the
-cache), `q` quits. Requires an interactive terminal.
+your browser, `e` opens the source line in `$EDITOR`, `y` copies `file:line` and
+`Y` copies the issue URL to the clipboard (terminal OSC52 — works over SSH/tmux
+with `set-clipboard on`), `r` re-scans (bypassing the cache), `q` quits. Requires
+an interactive terminal.
 
 Sorting: press `s` to cycle tier → by-file (grouped under file headers) → recency
 (newest first). Theme it with `--theme mocha|latte|frappe|macchiato` (default

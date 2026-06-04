@@ -491,6 +491,30 @@ func TestSelectedRowKeepsTierColor(t *testing.T) {
 	}
 }
 
+func TestYankFileLine(t *testing.T) {
+	m := New(fixture(), Deps{}, Mocha())
+	nm, cmd := m.Update(tea.KeyPressMsg{Code: 'y', Text: "y"})
+	m = nm.(Model)
+	if !strings.Contains(m.status, "a.go:2") {
+		t.Fatalf("status should mention yanked file:line, got %q", m.status)
+	}
+	if cmd == nil {
+		t.Fatal("y should return a clipboard command")
+	}
+}
+
+func TestYankURL(t *testing.T) {
+	m := New(fixture(), Deps{}, Mocha())
+	nm, cmd := m.Update(tea.KeyPressMsg{Code: 'Y', Text: "Y"})
+	m = nm.(Model)
+	if !strings.Contains(m.status, "https://github.com/o/r/issues/1") {
+		t.Fatalf("status should mention yanked URL, got %q", m.status)
+	}
+	if cmd == nil {
+		t.Fatal("Y should return a clipboard command")
+	}
+}
+
 func TestColumnsLeftPacked(t *testing.T) {
 	f := mkF("a.go", 1, model.TierOpen, time.Time{})
 	m := New([]model.Finding{f}, Deps{}, Mocha())

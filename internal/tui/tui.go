@@ -117,6 +117,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.findings = sortFindings(m.findings, m.mode)
 			m.cursor = 0
 			m.listOffset = 0
+		case "y":
+			if f, ok := m.current(); ok {
+				text := fmt.Sprintf("%s:%d", f.File, f.Line)
+				m.status = "yanked " + text
+				return m, tea.SetClipboard(text)
+			}
+		case "Y":
+			if f, ok := m.current(); ok {
+				url := issueURL(f)
+				m.status = "yanked " + url
+				return m, tea.SetClipboard(url)
+			}
 		}
 	case rescanDoneMsg:
 		if msg.err != nil {
