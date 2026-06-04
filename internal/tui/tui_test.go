@@ -10,6 +10,7 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+	lipgloss "charm.land/lipgloss/v2"
 	"github.com/noamsto/resolved/internal/model"
 )
 
@@ -414,5 +415,14 @@ func TestFilenameWidthScalesWithPane(t *testing.T) {
 	wide := strip(m.renderFindingRow(f, false, 100))
 	if len(strings.TrimSpace(wide)) <= len(strings.TrimSpace(narrow)) {
 		t.Fatalf("wider pane should show a longer row:\nnarrow=%q\nwide=%q", narrow, wide)
+	}
+}
+
+func TestFindingRowFitsWidth(t *testing.T) {
+	f := mkF("a/very/long/path/that/would/overflow/file.go", 123, model.TierStale, time.Time{})
+	m := New([]model.Finding{f}, Deps{}, Mocha())
+	row := m.renderFindingRow(f, false, 40)
+	if w := lipgloss.Width(row); w != 40 {
+		t.Fatalf("row display width = %d, want exactly 40 (no overflow/underflow)", w)
 	}
 }

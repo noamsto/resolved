@@ -28,10 +28,20 @@ func (m Model) renderAll() string {
 	}
 
 	ph := m.listHeight()
+	// pane.Width includes the horizontal padding (Padding(0,1) => 2 cells), so
+	// the content the renderers produce must be 2 narrower to avoid wrapping.
+	listInner := listW - 2
+	if listInner < 6 {
+		listInner = 6
+	}
+	detailInner := detailW - 2
+	if detailInner < 6 {
+		detailInner = 6
+	}
 	body := lipgloss.JoinHorizontal(
 		lipgloss.Top,
-		m.styles.pane.Width(listW).Height(ph).Render(m.renderList(listW)),
-		m.styles.pane.Width(detailW).Height(ph).Render(m.renderDetail(detailW)),
+		m.styles.pane.Width(listW).Height(ph).Render(m.renderList(listInner)),
+		m.styles.pane.Width(detailW).Height(ph).Render(m.renderDetail(detailInner)),
 	)
 
 	return strings.Join([]string{header, body, footer}, "\n")
