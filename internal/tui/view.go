@@ -30,8 +30,8 @@ func (m Model) renderAll() string {
 	ph := m.listHeight()
 	body := lipgloss.JoinHorizontal(
 		lipgloss.Top,
-		paneStyle.Width(listW).Height(ph).Render(m.renderList(listW)),
-		paneStyle.Width(detailW).Height(ph).Render(m.renderDetail(detailW)),
+		m.styles.pane.Width(listW).Height(ph).Render(m.renderList(listW)),
+		m.styles.pane.Width(detailW).Height(ph).Render(m.renderDetail(detailW)),
 	)
 
 	return strings.Join([]string{header, body, footer}, "\n")
@@ -41,7 +41,7 @@ func (m Model) renderHeader(width int) string {
 	s := m.summary()
 	line := fmt.Sprintf("resolved · %d refs · %d stale · %d closed · %d open",
 		len(m.findings), s.stale, s.closed, s.open)
-	return headerStyle.Width(width).Render(line)
+	return m.styles.header.Width(width).Render(line)
 }
 
 func (m Model) renderFooter(width int) string {
@@ -49,7 +49,7 @@ func (m Model) renderFooter(width int) string {
 	if m.status != "" {
 		help = m.status + "   " + help
 	}
-	return footerStyle.Width(width).Render(help)
+	return m.styles.footer.Width(width).Render(help)
 }
 
 func (m Model) renderList(width int) string {
@@ -64,13 +64,13 @@ func (m Model) renderList(width int) string {
 	var b strings.Builder
 	for i := m.listOffset; i < end; i++ {
 		f := m.findings[i]
-		icon, _, c := tierMeta(f.Tier)
+		icon, _ := tierMeta(f.Tier)
 		row := fmt.Sprintf("%s %s:%d  %s#%d",
 			icon, trimMid(f.File, 18), f.Line, f.Owner+"/"+f.Repo, f.Number)
 		if i == m.cursor {
-			b.WriteString(selectedRowStyle.Width(width).Render("❯ " + row))
+			b.WriteString(m.styles.selectedRow.Width(width).Render("❯ " + row))
 		} else {
-			b.WriteString(lipgloss.NewStyle().Foreground(c).Render("  " + row))
+			b.WriteString(lipgloss.NewStyle().Foreground(m.styles.tierColor(f.Tier)).Render("  " + row))
 		}
 		b.WriteString("\n")
 	}
@@ -88,16 +88,16 @@ func (m Model) renderDetail(width int) string {
 		kw = "—"
 	}
 	lines := []string{
-		tierBadge(f.Tier) + "  " + fmt.Sprintf("%s/%s#%d", f.Owner, f.Repo, f.Number),
+		m.styles.tierBadge(f.Tier) + "  " + fmt.Sprintf("%s/%s#%d", f.Owner, f.Repo, f.Number),
 		lipgloss.NewStyle().Bold(true).Render(f.Title),
 		"",
-		detailKeyStyle.Render("state    ") + f.State,
-		detailKeyStyle.Render("file     ") + fmt.Sprintf("%s:%d", f.File, f.Line),
-		detailKeyStyle.Render("url      ") + issueURL(f),
-		detailKeyStyle.Render("keyword  ") + kw,
-		detailKeyStyle.Render("kind     ") + fmt.Sprintf("%s · %s", f.Kind, f.Confidence),
+		m.styles.detailKey.Render("state    ") + f.State,
+		m.styles.detailKey.Render("file     ") + fmt.Sprintf("%s:%d", f.File, f.Line),
+		m.styles.detailKey.Render("url      ") + issueURL(f),
+		m.styles.detailKey.Render("keyword  ") + kw,
+		m.styles.detailKey.Render("kind     ") + fmt.Sprintf("%s · %s", f.Kind, f.Confidence),
 		"",
-		snippetStyle.Render(snippet),
+		m.styles.snippet.Render(snippet),
 	}
 	return strings.Join(lines, "\n")
 }

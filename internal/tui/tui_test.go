@@ -21,7 +21,7 @@ func fixture() []model.Finding {
 }
 
 func TestNewSortsStaleFirst(t *testing.T) {
-	m := New(fixture(), Deps{})
+	m := New(fixture(), Deps{}, Mocha())
 	if m.findings[0].Tier != model.TierStale {
 		t.Fatalf("first finding tier = %v, want stale", m.findings[0].Tier)
 	}
@@ -31,7 +31,7 @@ func TestNewSortsStaleFirst(t *testing.T) {
 }
 
 func TestViewShowsLocationsAndCursor(t *testing.T) {
-	m := New(fixture(), Deps{})
+	m := New(fixture(), Deps{}, Mocha())
 	out := m.View().Content
 	if !strings.Contains(out, "a.go:2") {
 		t.Fatalf("view missing a.go:2:\n%s", out)
@@ -53,7 +53,7 @@ func TestIssueURL(t *testing.T) {
 }
 
 func TestUpdateNavigation(t *testing.T) {
-	m := New(fixture(), Deps{})
+	m := New(fixture(), Deps{}, Mocha())
 
 	down := tea.KeyPressMsg{Code: tea.KeyDown}
 	nm, _ := m.Update(down)
@@ -88,7 +88,7 @@ func TestUpdateNavigation(t *testing.T) {
 }
 
 func TestUpdateQuit(t *testing.T) {
-	m := New(fixture(), Deps{})
+	m := New(fixture(), Deps{}, Mocha())
 	nm, cmd := m.Update(tea.KeyPressMsg{Code: 'q', Text: "q"})
 	m = nm.(Model)
 	if !m.quitting {
@@ -106,7 +106,7 @@ func TestEnterOpensIssueURL(t *testing.T) {
 	var opened string
 	m := New(fixture(), Deps{
 		OpenURL: func(url string) error { opened = url; return nil },
-	})
+	}, Mocha())
 	// cursor at 0 -> stale finding o/r#1 (issue)
 	nm, _ := m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
 	m = nm.(Model)
@@ -126,7 +126,7 @@ func TestEditInvokesEditorCmd(t *testing.T) {
 			gotFile, gotLine = file, line
 			return nil
 		},
-	})
+	}, Mocha())
 	// cursor at 0 -> a.go:2 after sorting (stale finding)
 	nm, _ := m.Update(tea.KeyPressMsg{Code: 'e', Text: "e"})
 	_ = nm.(Model)
@@ -136,7 +136,7 @@ func TestEditInvokesEditorCmd(t *testing.T) {
 }
 
 func TestEditorDoneSetsErrorStatus(t *testing.T) {
-	m := New(fixture(), Deps{})
+	m := New(fixture(), Deps{}, Mocha())
 	nm, _ := m.Update(editorDoneMsg{err: errTest})
 	m = nm.(Model)
 	if !strings.Contains(m.status, "editor") {
@@ -152,16 +152,14 @@ var ansiRe = regexp.MustCompile(`\x1b\[[0-9;]*m`)
 func strip(s string) string { return ansiRe.ReplaceAllString(s, "") }
 
 func TestTierBadgeLabels(t *testing.T) {
+	st := newStyles(Mocha())
 	cases := map[model.Tier]string{
-		model.TierStale:   "STALE",
-		model.TierClosed:  "closed",
-		model.TierGone:    "gone",
-		model.TierOpen:    "open",
-		model.TierUnknown: "unknown",
+		model.TierStale: "STALE", model.TierClosed: "closed", model.TierGone: "gone",
+		model.TierOpen: "open", model.TierUnknown: "unknown",
 	}
 	for tier, want := range cases {
-		if got := strip(tierBadge(tier)); !strings.Contains(got, want) {
-			t.Errorf("tierBadge(%v) = %q, want it to contain %q", tier, got, want)
+		if got := strip(st.tierBadge(tier)); !strings.Contains(got, want) {
+			t.Errorf("tierBadge(%v) = %q, want contains %q", tier, got, want)
 		}
 	}
 }
@@ -172,7 +170,7 @@ func TestRefreshReplacesFindings(t *testing.T) {
 	}
 	m := New(fixture(), Deps{
 		Rescan: func() ([]model.Finding, error) { return fresh, nil },
-	})
+	}, Mocha())
 
 	// pressing r returns a command that performs the rescan
 	nm, cmd := m.Update(tea.KeyPressMsg{Code: 'r', Text: "r"})
@@ -198,7 +196,7 @@ func TestRefreshReplacesFindings(t *testing.T) {
 }
 
 func TestRefreshErrorSetsStatus(t *testing.T) {
-	m := New(fixture(), Deps{})
+	m := New(fixture(), Deps{}, Mocha())
 	nm, _ := m.Update(rescanDoneMsg{err: errTest})
 	m = nm.(Model)
 	if !strings.Contains(m.status, "refresh failed") {
@@ -207,7 +205,7 @@ func TestRefreshErrorSetsStatus(t *testing.T) {
 }
 
 func TestWindowSizeSetsDims(t *testing.T) {
-	m := New(fixture(), Deps{})
+	m := New(fixture(), Deps{}, Mocha())
 	nm, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
 	m = nm.(Model)
 	if m.width != 120 || m.height != 40 {
@@ -226,7 +224,7 @@ func TestViewRendersHeaderListDetail(t *testing.T) {
 		Status:    model.Status{State: "closed", Title: "the bug"},
 		Tier:      model.TierStale,
 	}
-	m := New([]model.Finding{f}, Deps{})
+	m := New([]model.Finding{f}, Deps{}, Mocha())
 	nm, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 30})
 	m = nm.(Model)
 
@@ -246,7 +244,7 @@ func TestListScrollFollowsCursor(t *testing.T) {
 			Tier:      model.TierOpen,
 		})
 	}
-	m := New(fs, Deps{})
+	m := New(fs, Deps{}, Mocha())
 	nm, _ := m.Update(tea.WindowSizeMsg{Width: 100, Height: 12})
 	m = nm.(Model)
 

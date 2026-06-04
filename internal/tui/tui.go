@@ -39,11 +39,19 @@ type Model struct {
 	height     int
 	listOffset int
 	sources    *sourceCache
+	styles     Styles
+	theme      Theme
 }
 
 // New builds a Model with findings sorted by tier (stale first).
-func New(findings []model.Finding, deps Deps) Model {
-	return Model{findings: sortFindings(findings), deps: deps, sources: newSourceCache()}
+func New(findings []model.Finding, deps Deps, theme Theme) Model {
+	return Model{
+		findings: sortFindings(findings),
+		deps:     deps,
+		sources:  newSourceCache(),
+		theme:    theme,
+		styles:   newStyles(theme),
+	}
 }
 
 func (m Model) Init() tea.Cmd { return nil }
