@@ -116,7 +116,7 @@ func (m Model) renderFindingRow(f model.Finding, selected bool, width int) strin
 
 	row := marker + icon + " " + locCell + " " + ref
 	if selected {
-		return m.styles.selectedRow.Width(width).Render(row)
+		return m.styles.selectedRowFor(f.Tier).Width(width).Render(row)
 	}
 	return lipgloss.NewStyle().Foreground(m.styles.tierColor(f.Tier)).Render(row)
 }

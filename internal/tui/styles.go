@@ -69,3 +69,10 @@ func (s Styles) tierBadge(t model.Tier) string {
 	icon, label := tierMeta(t)
 	return lipgloss.NewStyle().Foreground(s.tierColor(t)).Render(icon + " " + label)
 }
+
+// selectedRowFor is the selected-row style for a tier: it keeps the selection
+// background (and bold) but colors the text with the tier color, so a
+// highlighted row still conveys its tier instead of going flat.
+func (s Styles) selectedRowFor(t model.Tier) lipgloss.Style {
+	return s.selectedRow.Foreground(s.tierColor(t))
+}

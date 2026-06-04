@@ -447,3 +447,17 @@ func TestListRowsDoNotWrap(t *testing.T) {
 		}
 	}
 }
+
+func TestSelectedRowKeepsTierColor(t *testing.T) {
+	st := newStyles(Mocha())
+	if st.selectedRowFor(model.TierStale).GetForeground() != Mocha().Stale {
+		t.Fatal("selected stale row should use the stale tier color as foreground")
+	}
+	if st.selectedRowFor(model.TierOpen).GetForeground() != Mocha().Open {
+		t.Fatal("selected open row should use the open tier color as foreground")
+	}
+	// background is preserved so the row still reads as highlighted
+	if st.selectedRowFor(model.TierStale).GetBackground() != Mocha().SelBg {
+		t.Fatal("selected row should keep the selection background")
+	}
+}
