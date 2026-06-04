@@ -2,11 +2,28 @@ package tui
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	lipgloss "charm.land/lipgloss/v2"
 	"github.com/noamsto/resolved/internal/model"
 )
+
+// collapseHome shortens an absolute path under the user's home directory to a
+// leading "~" for display. The real path is unchanged elsewhere.
+func collapseHome(p string) string {
+	home, err := os.UserHomeDir()
+	if err != nil || home == "" {
+		return p
+	}
+	if p == home {
+		return "~"
+	}
+	if strings.HasPrefix(p, home+string(os.PathSeparator)) {
+		return "~" + p[len(home):]
+	}
+	return p
+}
 
 // renderAll composes header + (list | detail) + footer into the full screen.
 func (m Model) renderAll() string {
@@ -76,7 +93,7 @@ func (m Model) locColWidth(width int) int {
 		if m.mode == modeFile {
 			loc = fmt.Sprintf(":%d", f.Line)
 		} else {
-			loc = fmt.Sprintf("%s:%d", f.File, f.Line)
+			loc = fmt.Sprintf("%s:%d", collapseHome(f.File), f.Line)
 		}
 		if w := lipgloss.Width(loc); w > maxLoc {
 			maxLoc = w
@@ -114,7 +131,7 @@ func (m Model) renderList(width int) string {
 	for ri := m.listOffset; ri < end; ri++ {
 		r := rows[ri]
 		if r.header {
-			b.WriteString(m.styles.fileHeader.Render("▸ " + trimMid(r.text, width-2)))
+			b.WriteString(m.styles.fileHeader.Render("▸ " + trimMid(collapseHome(r.text), width-2)))
 			b.WriteString("\n")
 			continue
 		}
@@ -142,7 +159,7 @@ func (m Model) renderFindingRow(f model.Finding, selected bool, locW, width int)
 		if nameBudget < 3 {
 			nameBudget = 3
 		}
-		loc = trimMid(f.File, nameBudget) + lineStr
+		loc = trimMid(collapseHome(f.File), nameBudget) + lineStr
 	}
 	locCell := lipgloss.NewStyle().Width(locW).Render(loc)
 
@@ -168,7 +185,7 @@ func (m Model) renderDetail(width int) string {
 		lipgloss.NewStyle().Bold(true).Render(f.Title),
 		"",
 		m.styles.detailKey.Render("state    ") + f.State,
-		m.styles.detailKey.Render("file     ") + fmt.Sprintf("%s:%d", f.File, f.Line),
+		m.styles.detailKey.Render("file     ") + fmt.Sprintf("%s:%d", collapseHome(f.File), f.Line),
 		m.styles.detailKey.Render("url      ") + issueURL(f),
 		m.styles.detailKey.Render("keyword  ") + kw,
 		m.styles.detailKey.Render("kind     ") + fmt.Sprintf("%s · %s", f.Kind, f.Confidence),
