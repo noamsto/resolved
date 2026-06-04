@@ -385,3 +385,34 @@ func TestCursorRowMapsThroughHeaders(t *testing.T) {
 		t.Fatalf("cursorRow = %d, want 3", cr)
 	}
 }
+
+func TestListColumnsAlign(t *testing.T) {
+	in := []model.Finding{
+		mkF("short.go", 1, model.TierOpen, time.Time{}),
+		mkF("a/very/long/path/to/file.go", 2, model.TierOpen, time.Time{}),
+	}
+	m := New(in, Deps{}, Mocha())
+	nm, _ := m.Update(tea.WindowSizeMsg{Width: 140, Height: 30})
+	m = nm.(Model)
+
+	r0 := strip(m.renderFindingRow(m.findings[0], false, 60))
+	r1 := strip(m.renderFindingRow(m.findings[1], false, 60))
+	off0 := strings.Index(r0, "o/r#")
+	off1 := strings.Index(r1, "o/r#")
+	if off0 < 0 || off1 < 0 {
+		t.Fatalf("ref column missing: %q / %q", r0, r1)
+	}
+	if off0 != off1 {
+		t.Fatalf("ref column not aligned: offset %d vs %d\n%q\n%q", off0, off1, r0, r1)
+	}
+}
+
+func TestFilenameWidthScalesWithPane(t *testing.T) {
+	f := mkF("a/very/long/path/to/some/file.go", 1, model.TierOpen, time.Time{})
+	m := New([]model.Finding{f}, Deps{}, Mocha())
+	narrow := strip(m.renderFindingRow(f, false, 40))
+	wide := strip(m.renderFindingRow(f, false, 100))
+	if len(strings.TrimSpace(wide)) <= len(strings.TrimSpace(narrow)) {
+		t.Fatalf("wider pane should show a longer row:\nnarrow=%q\nwide=%q", narrow, wide)
+	}
+}

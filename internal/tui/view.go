@@ -82,12 +82,34 @@ func (m Model) renderList(width int) string {
 
 func (m Model) renderFindingRow(f model.Finding, selected bool, width int) string {
 	icon, _ := tierMeta(f.Tier)
-	row := fmt.Sprintf("%s %s:%d  %s/%s#%d",
-		icon, trimMid(f.File, 18), f.Line, f.Owner, f.Repo, f.Number)
+	ref := fmt.Sprintf("%s/%s#%d", f.Owner, f.Repo, f.Number)
+
+	marker := "  "
 	if selected {
-		return m.styles.selectedRow.Width(width).Render("❯ " + row)
+		marker = "❯ "
 	}
-	return lipgloss.NewStyle().Foreground(m.styles.tierColor(f.Tier)).Render("  " + row)
+	const markerW = 2
+	const iconW = 2 // icon + trailing space
+	gap := 1
+	refW := lipgloss.Width(ref)
+	locW := width - markerW - iconW - gap - refW
+	if locW < 8 {
+		locW = 8
+	}
+
+	lineStr := fmt.Sprintf(":%d", f.Line)
+	nameBudget := locW - lipgloss.Width(lineStr)
+	if nameBudget < 3 {
+		nameBudget = 3
+	}
+	loc := trimMid(f.File, nameBudget) + lineStr
+	locCell := lipgloss.NewStyle().Width(locW).Render(loc)
+
+	row := marker + icon + " " + locCell + " " + ref
+	if selected {
+		return m.styles.selectedRow.Width(width).Render(row)
+	}
+	return lipgloss.NewStyle().Foreground(m.styles.tierColor(f.Tier)).Render(row)
 }
 
 func (m Model) renderDetail(width int) string {
