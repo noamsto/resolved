@@ -333,3 +333,55 @@ func TestListScrollFollowsCursor(t *testing.T) {
 		t.Fatalf("cursor %d not within visible window [%d, %d)", m.cursor, m.listOffset, m.listOffset+m.listHeight())
 	}
 }
+
+func TestDisplayRowsGroupByFile(t *testing.T) {
+	in := []model.Finding{
+		mkF("a.go", 1, model.TierOpen, time.Time{}),
+		mkF("a.go", 2, model.TierOpen, time.Time{}),
+		mkF("b.go", 3, model.TierOpen, time.Time{}),
+	}
+	m := New(in, Deps{}, Mocha())
+	m.mode = modeFile
+	m.findings = sortFindings(in, modeFile)
+
+	rows := m.displayRows()
+	headers := 0
+	for _, r := range rows {
+		if r.header {
+			headers++
+		}
+	}
+	if headers != 2 {
+		t.Fatalf("want 2 file headers, got %d (rows=%+v)", headers, rows)
+	}
+	if len(rows) != 5 { // 2 headers + 3 findings
+		t.Fatalf("want 5 display rows, got %d", len(rows))
+	}
+}
+
+func TestDisplayRowsFlatInTierMode(t *testing.T) {
+	m := New(fixture(), Deps{}, Mocha()) // modeTier
+	rows := m.displayRows()
+	if len(rows) != len(m.findings) {
+		t.Fatalf("tier mode should have no headers: %d rows vs %d findings", len(rows), len(m.findings))
+	}
+	for _, r := range rows {
+		if r.header {
+			t.Fatal("tier mode should emit no header rows")
+		}
+	}
+}
+
+func TestCursorRowMapsThroughHeaders(t *testing.T) {
+	in := []model.Finding{
+		mkF("a.go", 1, model.TierOpen, time.Time{}),
+		mkF("b.go", 2, model.TierOpen, time.Time{}),
+	}
+	m := New(in, Deps{}, Mocha())
+	m.mode = modeFile
+	m.findings = sortFindings(in, modeFile)
+	m.cursor = 1 // rows: [hdr a.go][a#1][hdr b.go][b#2] -> finding idx 1 is display row 3
+	if cr := m.cursorRow(); cr != 3 {
+		t.Fatalf("cursorRow = %d, want 3", cr)
+	}
+}

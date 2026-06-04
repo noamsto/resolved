@@ -57,28 +57,37 @@ func (m Model) renderFooter(width int) string {
 }
 
 func (m Model) renderList(width int) string {
-	if len(m.findings) == 0 {
+	rows := m.displayRows()
+	if len(rows) == 0 {
 		return "no references found"
 	}
 	vh := m.listHeight()
 	end := m.listOffset + vh
-	if end > len(m.findings) {
-		end = len(m.findings)
+	if end > len(rows) {
+		end = len(rows)
 	}
 	var b strings.Builder
-	for i := m.listOffset; i < end; i++ {
-		f := m.findings[i]
-		icon, _ := tierMeta(f.Tier)
-		row := fmt.Sprintf("%s %s:%d  %s#%d",
-			icon, trimMid(f.File, 18), f.Line, f.Owner+"/"+f.Repo, f.Number)
-		if i == m.cursor {
-			b.WriteString(m.styles.selectedRow.Width(width).Render("❯ " + row))
-		} else {
-			b.WriteString(lipgloss.NewStyle().Foreground(m.styles.tierColor(f.Tier)).Render("  " + row))
+	for ri := m.listOffset; ri < end; ri++ {
+		r := rows[ri]
+		if r.header {
+			b.WriteString(m.styles.fileHeader.Render("▸ " + trimMid(r.text, width-2)))
+			b.WriteString("\n")
+			continue
 		}
+		b.WriteString(m.renderFindingRow(m.findings[r.idx], r.idx == m.cursor, width))
 		b.WriteString("\n")
 	}
 	return strings.TrimRight(b.String(), "\n")
+}
+
+func (m Model) renderFindingRow(f model.Finding, selected bool, width int) string {
+	icon, _ := tierMeta(f.Tier)
+	row := fmt.Sprintf("%s %s:%d  %s/%s#%d",
+		icon, trimMid(f.File, 18), f.Line, f.Owner, f.Repo, f.Number)
+	if selected {
+		return m.styles.selectedRow.Width(width).Render("❯ " + row)
+	}
+	return lipgloss.NewStyle().Foreground(m.styles.tierColor(f.Tier)).Render("  " + row)
 }
 
 func (m Model) renderDetail(width int) string {

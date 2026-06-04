@@ -251,14 +251,54 @@ func (m Model) listHeight() int {
 	return rows
 }
 
+// displayRow is one rendered list line: either a file-group header or a finding.
+type displayRow struct {
+	header bool
+	text   string // header: the file path
+	idx    int    // finding row: index into m.findings
+}
+
+// displayRows builds the list rows. In modeFile a header precedes each file
+// group; other modes are a flat finding list.
+func (m Model) displayRows() []displayRow {
+	if m.mode != modeFile {
+		rows := make([]displayRow, len(m.findings))
+		for i := range m.findings {
+			rows[i] = displayRow{idx: i}
+		}
+		return rows
+	}
+	var rows []displayRow
+	last := ""
+	for i, f := range m.findings {
+		if f.File != last {
+			rows = append(rows, displayRow{header: true, text: f.File})
+			last = f.File
+		}
+		rows = append(rows, displayRow{idx: i})
+	}
+	return rows
+}
+
+// cursorRow is the display-row index of the currently selected finding.
+func (m Model) cursorRow() int {
+	for ri, r := range m.displayRows() {
+		if !r.header && r.idx == m.cursor {
+			return ri
+		}
+	}
+	return 0
+}
+
 // clampScroll keeps listOffset so the cursor stays within the visible window.
 func (m *Model) clampScroll() {
 	vh := m.listHeight()
-	if m.cursor < m.listOffset {
-		m.listOffset = m.cursor
+	cr := m.cursorRow()
+	if cr < m.listOffset {
+		m.listOffset = cr
 	}
-	if m.cursor >= m.listOffset+vh {
-		m.listOffset = m.cursor - vh + 1
+	if cr >= m.listOffset+vh {
+		m.listOffset = cr - vh + 1
 	}
 	if m.listOffset < 0 {
 		m.listOffset = 0
