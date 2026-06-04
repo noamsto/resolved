@@ -69,3 +69,25 @@ func TestRunScanJSONAndExitCode(t *testing.T) {
 		t.Fatalf("expected stale finding in JSON:\n%s", buf.String())
 	}
 }
+
+func TestScanToResultReturnsFindings(t *testing.T) {
+	dir := t.TempDir()
+	writeTestFile(t, dir, "a.go",
+		"package main\n// TODO https://github.com/o/r/issues/1\nfunc main(){}\n")
+
+	fetcher := stubFetcher{statuses: map[string]model.Status{"o/r#1": {State: "closed", Title: "bug"}}}
+
+	res, err := scanToResult(scanConfig{
+		dir:      dir,
+		args:     []string{dir},
+		keywords: []string{"TODO"},
+		fetcher:  fetcher,
+		noCache:  true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res.Findings) != 1 || res.Findings[0].Tier != model.TierStale {
+		t.Fatalf("unexpected result: %+v", res.Findings)
+	}
+}

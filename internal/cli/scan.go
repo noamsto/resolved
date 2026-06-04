@@ -34,19 +34,12 @@ type scanConfig struct {
 	out      io.Writer
 }
 
-// runScan resolves targets, runs the engine, renders, and returns the exit code.
-// The returned int is only meaningful when err == nil; on a non-nil error the
-// caller must treat it as a tool error (process exit 2), which Execute() handles.
-func runScan(cfg scanConfig) (int, error) {
-	switch cfg.failOn {
-	case "stale", "closed", "any":
-	default:
-		return 2, fmt.Errorf("unknown --fail-on value %q: must be stale|closed|any", cfg.failOn)
-	}
-
+// scanToResult resolves targets and runs the engine, returning the findings.
+// Shared by the scan and explore commands.
+func scanToResult(cfg scanConfig) (engine.Result, error) {
 	targets, err := resolveTargets(cfg.dir, cfg.args, cfg.staged, cfg.diffRef, cfg.exclude)
 	if err != nil {
-		return 2, err
+		return engine.Result{}, err
 	}
 
 	owner, repo, _ := gitctx.OriginRepo(cfg.dir) // best-effort; empty disables bare #n
@@ -55,7 +48,7 @@ func runScan(cfg scanConfig) (int, error) {
 	if fetcher == nil {
 		client, err := github.NewClient()
 		if err != nil {
-			return 2, err
+			return engine.Result{}, err
 		}
 		fetcher = client
 	}
@@ -67,7 +60,7 @@ func runScan(cfg scanConfig) (int, error) {
 		c = cache.New(defaultCacheDir())
 	}
 
-	res, err := engine.Run(context.Background(), engine.Options{
+	return engine.Run(context.Background(), engine.Options{
 		Targets:  targets,
 		Keywords: cfg.keywords,
 		Owner:    owner,
@@ -75,6 +68,19 @@ func runScan(cfg scanConfig) (int, error) {
 		Cache:    c,
 		GitHub:   fetcher,
 	})
+}
+
+// runScan resolves targets, runs the engine, renders, and returns the exit code.
+// The returned int is only meaningful when err == nil; on a non-nil error the
+// caller must treat it as a tool error (process exit 2), which Execute() handles.
+func runScan(cfg scanConfig) (int, error) {
+	switch cfg.failOn {
+	case "stale", "closed", "any":
+	default:
+		return 2, fmt.Errorf("unknown --fail-on value %q: must be stale|closed|any", cfg.failOn)
+	}
+
+	res, err := scanToResult(cfg)
 	if err != nil {
 		return 2, err
 	}
