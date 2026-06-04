@@ -36,3 +36,8 @@ showing the selected reference's title, state, location, URL, triggering keyword
 and the source comment line. Keys: `j`/`k` move, `enter` opens the issue/PR in
 your browser, `e` opens the source line in `$EDITOR`, `r` re-scans (bypassing the
 cache), `q` quits. Requires an interactive terminal.
+
+Sorting: press `s` to cycle tier → by-file (grouped under file headers) → recency
+(newest first). Theme it with `--theme mocha|latte|frappe|macchiato` (default
+`mocha`, Catppuccin). The list shows tier-color-coded references (stale=red,
+gone=peach, closed=muted, open=green); a wider terminal shows longer file paths.
