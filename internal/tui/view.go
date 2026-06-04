@@ -65,6 +65,40 @@ func (m Model) renderFooter(width int) string {
 	return m.styles.footer.Width(width).Render(help)
 }
 
+// locColWidth is the width of the file/line column: the longest entry across
+// all findings, capped so the ref column still fits. This left-packs the layout
+// (refs sit right after the longest filename) rather than stretching to the
+// pane's right edge.
+func (m Model) locColWidth(width int) int {
+	maxLoc, maxRef := 0, 0
+	for _, f := range m.findings {
+		var loc string
+		if m.mode == modeFile {
+			loc = fmt.Sprintf(":%d", f.Line)
+		} else {
+			loc = fmt.Sprintf("%s:%d", f.File, f.Line)
+		}
+		if w := lipgloss.Width(loc); w > maxLoc {
+			maxLoc = w
+		}
+		if w := lipgloss.Width(fmt.Sprintf("%s/%s#%d", f.Owner, f.Repo, f.Number)); w > maxRef {
+			maxRef = w
+		}
+	}
+	const markerW, iconW, gap = 2, 2, 1
+	budget := width - markerW - iconW - gap - maxRef
+	if budget < 8 {
+		budget = 8
+	}
+	if maxLoc < 1 {
+		maxLoc = 1
+	}
+	if maxLoc < budget {
+		return maxLoc
+	}
+	return budget
+}
+
 func (m Model) renderList(width int) string {
 	rows := m.displayRows()
 	if len(rows) == 0 {
@@ -75,6 +109,7 @@ func (m Model) renderList(width int) string {
 	if end > len(rows) {
 		end = len(rows)
 	}
+	locW := m.locColWidth(width)
 	var b strings.Builder
 	for ri := m.listOffset; ri < end; ri++ {
 		r := rows[ri]
@@ -83,13 +118,13 @@ func (m Model) renderList(width int) string {
 			b.WriteString("\n")
 			continue
 		}
-		b.WriteString(m.renderFindingRow(m.findings[r.idx], r.idx == m.cursor, width))
+		b.WriteString(m.renderFindingRow(m.findings[r.idx], r.idx == m.cursor, locW, width))
 		b.WriteString("\n")
 	}
 	return strings.TrimRight(b.String(), "\n")
 }
 
-func (m Model) renderFindingRow(f model.Finding, selected bool, width int) string {
+func (m Model) renderFindingRow(f model.Finding, selected bool, locW, width int) string {
 	icon, _ := tierMeta(f.Tier)
 	ref := fmt.Sprintf("%s/%s#%d", f.Owner, f.Repo, f.Number)
 
@@ -99,26 +134,17 @@ func (m Model) renderFindingRow(f model.Finding, selected bool, width int) strin
 	}
 	lineStr := fmt.Sprintf(":%d", f.Line)
 
-	var locCell string
+	var loc string
 	if m.mode == modeFile {
-		// Grouped under a file header — the path is redundant, show just the line.
-		locCell = lipgloss.NewStyle().Width(8).Render(lineStr)
+		loc = lineStr
 	} else {
-		const markerW = 2
-		const iconW = 2 // icon + trailing space
-		gap := 1
-		refW := lipgloss.Width(ref)
-		locW := width - markerW - iconW - gap - refW
-		if locW < 8 {
-			locW = 8
-		}
 		nameBudget := locW - lipgloss.Width(lineStr)
 		if nameBudget < 3 {
 			nameBudget = 3
 		}
-		loc := trimMid(f.File, nameBudget) + lineStr
-		locCell = lipgloss.NewStyle().Width(locW).Render(loc)
+		loc = trimMid(f.File, nameBudget) + lineStr
 	}
+	locCell := lipgloss.NewStyle().Width(locW).Render(loc)
 
 	row := marker + icon + " " + locCell + " " + ref
 	if selected {

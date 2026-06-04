@@ -396,8 +396,9 @@ func TestListColumnsAlign(t *testing.T) {
 	nm, _ := m.Update(tea.WindowSizeMsg{Width: 140, Height: 30})
 	m = nm.(Model)
 
-	r0 := strip(m.renderFindingRow(m.findings[0], false, 60))
-	r1 := strip(m.renderFindingRow(m.findings[1], false, 60))
+	locW := m.locColWidth(60)
+	r0 := strip(m.renderFindingRow(m.findings[0], false, locW, 60))
+	r1 := strip(m.renderFindingRow(m.findings[1], false, locW, 60))
 	off0 := strings.Index(r0, "o/r#")
 	off1 := strings.Index(r1, "o/r#")
 	if off0 < 0 || off1 < 0 {
@@ -411,8 +412,8 @@ func TestListColumnsAlign(t *testing.T) {
 func TestFilenameWidthScalesWithPane(t *testing.T) {
 	f := mkF("a/very/long/path/to/some/file.go", 1, model.TierOpen, time.Time{})
 	m := New([]model.Finding{f}, Deps{}, Mocha())
-	narrow := strip(m.renderFindingRow(f, false, 40))
-	wide := strip(m.renderFindingRow(f, false, 100))
+	narrow := strip(m.renderFindingRow(f, false, m.locColWidth(40), 40))
+	wide := strip(m.renderFindingRow(f, false, m.locColWidth(100), 100))
 	if len(strings.TrimSpace(wide)) <= len(strings.TrimSpace(narrow)) {
 		t.Fatalf("wider pane should show a longer row:\nnarrow=%q\nwide=%q", narrow, wide)
 	}
@@ -421,9 +422,12 @@ func TestFilenameWidthScalesWithPane(t *testing.T) {
 func TestFindingRowFitsWidth(t *testing.T) {
 	f := mkF("a/very/long/path/that/would/overflow/file.go", 123, model.TierStale, time.Time{})
 	m := New([]model.Finding{f}, Deps{}, Mocha())
-	row := m.renderFindingRow(f, false, 40)
-	if w := lipgloss.Width(row); w != 40 {
-		t.Fatalf("row display width = %d, want exactly 40 (no overflow/underflow)", w)
+	locW := m.locColWidth(40)
+	if w := lipgloss.Width(m.renderFindingRow(f, true, locW, 40)); w != 40 {
+		t.Fatalf("selected row width = %d, want 40 (full-width highlight)", w)
+	}
+	if w := lipgloss.Width(m.renderFindingRow(f, false, locW, 40)); w > 40 {
+		t.Fatalf("unselected row width = %d, want <= 40 (no overflow)", w)
 	}
 }
 
@@ -452,7 +456,7 @@ func TestGroupedRowOmitsFilePath(t *testing.T) {
 	f := mkF("some/dir/file.go", 7, model.TierOpen, time.Time{})
 	m := New([]model.Finding{f}, Deps{}, Mocha())
 	m.mode = modeFile
-	row := strip(m.renderFindingRow(f, false, 60))
+	row := strip(m.renderFindingRow(f, false, m.locColWidth(60), 60))
 	if strings.Contains(row, "file.go") {
 		t.Fatalf("grouped row should omit the filename (it's in the header): %q", row)
 	}
@@ -467,7 +471,7 @@ func TestGroupedRowOmitsFilePath(t *testing.T) {
 func TestUngroupedRowKeepsFilePath(t *testing.T) {
 	f := mkF("some/dir/file.go", 7, model.TierOpen, time.Time{})
 	m := New([]model.Finding{f}, Deps{}, Mocha()) // modeTier
-	row := strip(m.renderFindingRow(f, false, 60))
+	row := strip(m.renderFindingRow(f, false, m.locColWidth(60), 60))
 	if !strings.Contains(row, "file.go") {
 		t.Fatalf("non-grouped row should show the filename: %q", row)
 	}
@@ -484,5 +488,19 @@ func TestSelectedRowKeepsTierColor(t *testing.T) {
 	// background is preserved so the row still reads as highlighted
 	if st.selectedRowFor(model.TierStale).GetBackground() != Mocha().SelBg {
 		t.Fatal("selected row should keep the selection background")
+	}
+}
+
+func TestColumnsLeftPacked(t *testing.T) {
+	f := mkF("a.go", 1, model.TierOpen, time.Time{})
+	m := New([]model.Finding{f}, Deps{}, Mocha())
+	locW := m.locColWidth(80)
+	row := strip(m.renderFindingRow(f, false, locW, 80))
+	off := strings.Index(row, "o/r#1")
+	if off < 0 {
+		t.Fatalf("ref missing: %q", row)
+	}
+	if off > 24 {
+		t.Fatalf("ref not left-packed (sits at offset %d, expected near the filename): %q", off, row)
 	}
 }
