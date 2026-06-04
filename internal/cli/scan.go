@@ -30,6 +30,7 @@ type scanConfig struct {
 	diffRef  string
 	exclude  []string
 	noCache  bool
+	noBare   bool
 	fetcher  engine.StatusFetcher // injected in tests; nil => real github client
 	out      io.Writer
 }
@@ -43,6 +44,9 @@ func scanToResult(cfg scanConfig) (engine.Result, error) {
 	}
 
 	owner, repo, _ := gitctx.OriginRepo(cfg.dir) // best-effort; empty disables bare #n
+	if cfg.noBare {
+		owner, repo = "", "" // disables bare #n resolution
+	}
 
 	fetcher := cfg.fetcher
 	if fetcher == nil {
@@ -112,6 +116,7 @@ func init() {
 		exclude  []string
 		keywords []string
 		noCache  bool
+		noBare   bool
 	)
 	cmd := &cobra.Command{
 		Use:   "scan [paths...]",
@@ -129,7 +134,7 @@ func init() {
 				dir: dir, args: args, keywords: kw, failOn: failOn,
 				json: report.UseJSON(jsonOut), noColor: noColor,
 				staged: staged, diffRef: diffRef, exclude: exclude,
-				noCache: noCache, out: cmd.OutOrStdout(),
+				noCache: noCache, noBare: noBare, out: cmd.OutOrStdout(),
 			})
 			if err != nil {
 				return err
@@ -146,5 +151,6 @@ func init() {
 	cmd.Flags().StringSliceVar(&exclude, "exclude", nil, "glob(s) to exclude by base name")
 	cmd.Flags().StringSliceVar(&keywords, "keywords", nil, "stale keywords (default TODO,FIXME,HACK,XXX,BUG)")
 	cmd.Flags().BoolVar(&noCache, "no-cache", false, "bypass the on-disk cache")
+	cmd.Flags().BoolVar(&noBare, "no-bare", false, "ignore bare #123 references (only full URLs and owner/repo#n)")
 	rootCmd.AddCommand(cmd)
 }
