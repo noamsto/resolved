@@ -3,7 +3,6 @@ package tui
 import (
 	"fmt"
 	"sort"
-	"strings"
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/noamsto/resolved/internal/model"
@@ -39,11 +38,12 @@ type Model struct {
 	width      int
 	height     int
 	listOffset int
+	sources    *sourceCache
 }
 
 // New builds a Model with findings sorted by tier (stale first).
 func New(findings []model.Finding, deps Deps) Model {
-	return Model{findings: sortFindings(findings), deps: deps}
+	return Model{findings: sortFindings(findings), deps: deps, sources: newSourceCache()}
 }
 
 func (m Model) Init() tea.Cmd { return nil }
@@ -160,28 +160,12 @@ func issueURL(f model.Finding) string {
 	return fmt.Sprintf("https://github.com/%s/%s/%s/%d", f.Owner, f.Repo, kind, f.Number)
 }
 
-// render produces the plain-text body of the TUI.
+// render produces the styled TUI output.
 func (m Model) render() string {
 	if m.quitting {
 		return ""
 	}
-	var b strings.Builder
-	b.WriteString("resolved — explore  (j/k move · enter open issue · e edit · r refresh · q quit)\n\n")
-	if len(m.findings) == 0 {
-		b.WriteString("  no references found\n")
-	}
-	for i, f := range m.findings {
-		cursor := "  "
-		if i == m.cursor {
-			cursor = "> "
-		}
-		fmt.Fprintf(&b, "%s[%s] %s:%d  %s/%s#%d  %s\n",
-			cursor, f.Tier.String(), f.File, f.Line, f.Owner, f.Repo, f.Number, f.Title)
-	}
-	if m.status != "" {
-		fmt.Fprintf(&b, "\n%s\n", m.status)
-	}
-	return b.String()
+	return m.renderAll()
 }
 
 // View renders the model. AltScreen is declared on the View in v2.

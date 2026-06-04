@@ -2,6 +2,8 @@ package tui
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
@@ -34,7 +36,7 @@ func TestViewShowsLocationsAndCursor(t *testing.T) {
 	if !strings.Contains(out, "a.go:2") {
 		t.Fatalf("view missing a.go:2:\n%s", out)
 	}
-	if !strings.Contains(out, "> ") {
+	if !strings.Contains(out, "❯") {
 		t.Fatalf("view missing cursor marker:\n%s", out)
 	}
 }
@@ -210,6 +212,29 @@ func TestWindowSizeSetsDims(t *testing.T) {
 	m = nm.(Model)
 	if m.width != 120 || m.height != 40 {
 		t.Fatalf("dims = %dx%d, want 120x40", m.width, m.height)
+	}
+}
+
+func TestViewRendersHeaderListDetail(t *testing.T) {
+	dir := t.TempDir()
+	p := filepath.Join(dir, "demo.go")
+	if err := os.WriteFile(p, []byte("package d\n// TODO drop once https://github.com/o/r/issues/1 ships\nfunc x(){}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	f := model.Finding{
+		Reference: model.Reference{File: p, Line: 2, Owner: "o", Repo: "r", Number: 1, Type: model.TypeIssue, Keyword: "TODO"},
+		Status:    model.Status{State: "closed", Title: "the bug"},
+		Tier:      model.TierStale,
+	}
+	m := New([]model.Finding{f}, Deps{})
+	nm, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 30})
+	m = nm.(Model)
+
+	out := strip(m.View().Content)
+	for _, want := range []string{"1 ref", "STALE", "the bug", "o/r#1", "TODO drop once"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("view missing %q in:\n%s", want, out)
+		}
 	}
 }
 
