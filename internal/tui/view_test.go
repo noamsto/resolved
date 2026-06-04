@@ -8,6 +8,7 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/alecthomas/chroma/v2/styles"
 	"github.com/noamsto/resolved/internal/model"
 )
 
@@ -93,6 +94,24 @@ func TestHeaderShowsRoot(t *testing.T) {
 	}
 	if strings.Contains(out, "/home/test/proj/internal/x.go") {
 		t.Fatalf("absolute path should not appear when under root:\n%s", out)
+	}
+}
+
+func TestHighlightEmitsANSIForGo(t *testing.T) {
+	out := highlight("package main\nfunc main() {}\n", "x.go", "catppuccin-mocha")
+	if !strings.Contains(out, "\x1b[") {
+		t.Fatal("expected ANSI color codes in highlighted go code")
+	}
+	if strip(out) != "package main\nfunc main() {}\n" && !strings.Contains(strip(out), "package main") {
+		t.Fatalf("highlight changed the text content: %q", strip(out))
+	}
+}
+
+func TestChromaCatppuccinStylesExist(t *testing.T) {
+	for _, s := range []string{"catppuccin-mocha", "catppuccin-latte", "catppuccin-frappe", "catppuccin-macchiato"} {
+		if styles.Get(s) == styles.Fallback {
+			t.Errorf("chroma style %q not found (would fall back)", s)
+		}
 	}
 }
 
