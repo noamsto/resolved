@@ -31,11 +31,14 @@ type rescanDoneMsg struct {
 
 // Model is the Bubble Tea model for the explore TUI.
 type Model struct {
-	findings []model.Finding
-	cursor   int
-	status   string
-	deps     Deps
-	quitting bool
+	findings   []model.Finding
+	cursor     int
+	status     string
+	deps       Deps
+	quitting   bool
+	width      int
+	height     int
+	listOffset int
 }
 
 // New builds a Model with findings sorted by tier (stale first).
@@ -95,7 +98,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.err != nil {
 			m.status = "editor: " + msg.err.Error()
 		}
+	case tea.WindowSizeMsg:
+		m.width = msg.Width
+		m.height = msg.Height
+		m.clampScroll()
 	}
+	m.clampScroll()
 	return m, nil
 }
 
@@ -182,4 +190,33 @@ func (m Model) View() tea.View {
 	v.SetContent(m.render())
 	v.AltScreen = true
 	return v
+}
+
+// listHeight is the number of finding rows visible in the list pane, derived
+// from terminal height minus header+footer chrome; a sane default applies
+// before the first WindowSizeMsg.
+func (m Model) listHeight() int {
+	h := m.height
+	if h <= 0 {
+		h = 24
+	}
+	rows := h - 5
+	if rows < 1 {
+		rows = 1
+	}
+	return rows
+}
+
+// clampScroll keeps listOffset so the cursor stays within the visible window.
+func (m *Model) clampScroll() {
+	vh := m.listHeight()
+	if m.cursor < m.listOffset {
+		m.listOffset = m.cursor
+	}
+	if m.cursor >= m.listOffset+vh {
+		m.listOffset = m.cursor - vh + 1
+	}
+	if m.listOffset < 0 {
+		m.listOffset = 0
+	}
 }

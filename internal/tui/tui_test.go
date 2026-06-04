@@ -203,3 +203,39 @@ func TestRefreshErrorSetsStatus(t *testing.T) {
 		t.Fatalf("status = %q", m.status)
 	}
 }
+
+func TestWindowSizeSetsDims(t *testing.T) {
+	m := New(fixture(), Deps{})
+	nm, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+	m = nm.(Model)
+	if m.width != 120 || m.height != 40 {
+		t.Fatalf("dims = %dx%d, want 120x40", m.width, m.height)
+	}
+}
+
+func TestListScrollFollowsCursor(t *testing.T) {
+	var fs []model.Finding
+	for i := 0; i < 30; i++ {
+		fs = append(fs, model.Finding{
+			Reference: model.Reference{File: "f.go", Line: i + 1, Owner: "o", Repo: "r", Number: i + 1},
+			Tier:      model.TierOpen,
+		})
+	}
+	m := New(fs, Deps{})
+	nm, _ := m.Update(tea.WindowSizeMsg{Width: 100, Height: 12})
+	m = nm.(Model)
+
+	for i := 0; i < 29; i++ {
+		nm, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyDown})
+		m = nm.(Model)
+	}
+	if m.cursor != 29 {
+		t.Fatalf("cursor = %d, want 29", m.cursor)
+	}
+	if m.listOffset == 0 {
+		t.Fatal("listOffset should have advanced as the cursor moved past the viewport")
+	}
+	if m.cursor < m.listOffset || m.cursor >= m.listOffset+m.listHeight() {
+		t.Fatalf("cursor %d not within visible window [%d, %d)", m.cursor, m.listOffset, m.listOffset+m.listHeight())
+	}
+}
