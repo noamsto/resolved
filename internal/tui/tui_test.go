@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -142,6 +143,26 @@ func TestEditorDoneSetsErrorStatus(t *testing.T) {
 }
 
 var errTest = fmt.Errorf("boom")
+
+var ansiRe = regexp.MustCompile(`\x1b\[[0-9;]*m`)
+
+// strip removes ANSI color codes so substring assertions are color-independent.
+func strip(s string) string { return ansiRe.ReplaceAllString(s, "") }
+
+func TestTierBadgeLabels(t *testing.T) {
+	cases := map[model.Tier]string{
+		model.TierStale:   "STALE",
+		model.TierClosed:  "closed",
+		model.TierGone:    "gone",
+		model.TierOpen:    "open",
+		model.TierUnknown: "unknown",
+	}
+	for tier, want := range cases {
+		if got := strip(tierBadge(tier)); !strings.Contains(got, want) {
+			t.Errorf("tierBadge(%v) = %q, want it to contain %q", tier, got, want)
+		}
+	}
+}
 
 func TestRefreshReplacesFindings(t *testing.T) {
 	fresh := []model.Finding{
