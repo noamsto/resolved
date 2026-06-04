@@ -17,6 +17,9 @@ type Deps struct {
 	Rescan    func() ([]model.Finding, error)     // re-run the scan
 }
 
+// editorDoneMsg is delivered when the external editor process exits.
+type editorDoneMsg struct{ err error }
+
 // Model is the Bubble Tea model for the explore TUI.
 type Model struct {
 	findings []model.Finding
@@ -49,6 +52,24 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.cursor > 0 {
 				m.cursor--
 			}
+		case "enter":
+			if f, ok := m.current(); ok && m.deps.OpenURL != nil {
+				url := issueURL(f)
+				if err := m.deps.OpenURL(url); err != nil {
+					m.status = "open url: " + err.Error()
+				} else {
+					m.status = "opened " + url
+				}
+			}
+		case "e":
+			if f, ok := m.current(); ok && m.deps.EditorCmd != nil {
+				m.status = fmt.Sprintf("opening %s:%d", f.File, f.Line)
+				return m, m.deps.EditorCmd(f.File, f.Line)
+			}
+		}
+	case editorDoneMsg:
+		if msg.err != nil {
+			m.status = "editor: " + msg.err.Error()
 		}
 	}
 	return m, nil

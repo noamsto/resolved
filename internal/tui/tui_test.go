@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -97,3 +98,47 @@ func TestUpdateQuit(t *testing.T) {
 		t.Fatal("q command should produce tea.QuitMsg")
 	}
 }
+
+func TestEnterOpensIssueURL(t *testing.T) {
+	var opened string
+	m := New(fixture(), Deps{
+		OpenURL: func(url string) error { opened = url; return nil },
+	})
+	// cursor at 0 -> stale finding o/r#1 (issue)
+	nm, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = nm.(Model)
+	if opened != "https://github.com/o/r/issues/1" {
+		t.Fatalf("opened = %q", opened)
+	}
+	if m.status == "" {
+		t.Fatal("expected a status message after opening")
+	}
+}
+
+func TestEditInvokesEditorCmd(t *testing.T) {
+	var gotFile string
+	var gotLine int
+	m := New(fixture(), Deps{
+		EditorCmd: func(file string, line int) tea.Cmd {
+			gotFile, gotLine = file, line
+			return nil
+		},
+	})
+	// cursor at 0 -> a.go:2 after sorting (stale finding)
+	nm, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'e'}})
+	_ = nm.(Model)
+	if gotFile != "a.go" || gotLine != 2 {
+		t.Fatalf("editor invoked with %s:%d, want a.go:2", gotFile, gotLine)
+	}
+}
+
+func TestEditorDoneSetsErrorStatus(t *testing.T) {
+	m := New(fixture(), Deps{})
+	nm, _ := m.Update(editorDoneMsg{err: errTest})
+	m = nm.(Model)
+	if !strings.Contains(m.status, "editor") {
+		t.Fatalf("status = %q, want editor error", m.status)
+	}
+}
+
+var errTest = fmt.Errorf("boom")
