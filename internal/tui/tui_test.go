@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/noamsto/resolved/internal/model"
 )
 
@@ -44,5 +45,55 @@ func TestIssueURL(t *testing.T) {
 	pr := model.Finding{Reference: model.Reference{Owner: "o", Repo: "r", Number: 8, Type: model.TypePR}}
 	if got := issueURL(pr); got != "https://github.com/o/r/pull/8" {
 		t.Fatalf("pr url = %q", got)
+	}
+}
+
+func TestUpdateNavigation(t *testing.T) {
+	m := New(fixture(), Deps{})
+
+	down := tea.KeyMsg{Type: tea.KeyDown}
+	nm, _ := m.Update(down)
+	m = nm.(Model)
+	if m.cursor != 1 {
+		t.Fatalf("after down, cursor = %d, want 1", m.cursor)
+	}
+
+	nm, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+	m = nm.(Model)
+	if m.cursor != 2 {
+		t.Fatalf("after j, cursor = %d, want 2", m.cursor)
+	}
+
+	// cannot go past the last item (3 findings -> max index 2)
+	nm, _ = m.Update(down)
+	m = nm.(Model)
+	if m.cursor != 2 {
+		t.Fatalf("cursor overran end: %d", m.cursor)
+	}
+
+	// up / k move back, clamped at 0
+	nm, _ = m.Update(tea.KeyMsg{Type: tea.KeyUp})
+	m = nm.(Model)
+	nm, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
+	m = nm.(Model)
+	nm, _ = m.Update(tea.KeyMsg{Type: tea.KeyUp})
+	m = nm.(Model)
+	if m.cursor != 0 {
+		t.Fatalf("cursor underran start: %d", m.cursor)
+	}
+}
+
+func TestUpdateQuit(t *testing.T) {
+	m := New(fixture(), Deps{})
+	nm, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}})
+	m = nm.(Model)
+	if !m.quitting {
+		t.Fatal("q should set quitting")
+	}
+	if cmd == nil {
+		t.Fatal("q should return a quit command")
+	}
+	if _, ok := cmd().(tea.QuitMsg); !ok {
+		t.Fatal("q command should produce tea.QuitMsg")
 	}
 }

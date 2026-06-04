@@ -33,6 +33,27 @@ func New(findings []model.Finding, deps Deps) Model {
 
 func (m Model) Init() tea.Cmd { return nil }
 
+// Update handles key and async messages. Side-effects go through m.deps.
+func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "q", "esc", "ctrl+c":
+			m.quitting = true
+			return m, tea.Quit
+		case "down", "j":
+			if m.cursor < len(m.findings)-1 {
+				m.cursor++
+			}
+		case "up", "k":
+			if m.cursor > 0 {
+				m.cursor--
+			}
+		}
+	}
+	return m, nil
+}
+
 func tierRank(t model.Tier) int {
 	switch t {
 	case model.TierStale:
