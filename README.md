@@ -6,11 +6,28 @@ comment. The CLI companion to [`resolved.nvim`](https://github.com/noamsto/resol
 
 ## Install
 
+`resolved` is also a **Claude Code plugin** (this repo doubles as its own
+single-plugin marketplace):
+
+```
+/plugin marketplace add noamsto/resolved
+/plugin install resolved@resolved
+```
+
+Then ask Claude about stale references, or run `/stale`. On first use the static
+`resolved` binary auto-downloads for your OS/arch into `~/.cache/resolved/bin`; a
+binary already on PATH (e.g. nix- or `go install`-installed) is used as-is, never
+downloaded over. The only assumptions are `git` and a GitHub credential
+(`GITHUB_TOKEN`/`GH_TOKEN`, or `gh auth login`).
+
+<details>
+<summary>Standalone CLI (without the plugin)</summary>
+
 ```bash
 go install github.com/noamsto/resolved/cmd/resolved@latest
 ```
 
-Requires a GitHub credential: `GITHUB_TOKEN`/`GH_TOKEN`, or `gh auth login`.
+</details>
 
 ## Usage
 
@@ -36,6 +53,15 @@ YAML, TOML, Lua, shell, and ~250 more). Files in unrecognized languages are
 skipped and counted in the summary (`(N skipped: unsupported language)`).
 
 See `resolved scan --help` for all flags.
+
+## Develop
+
+```bash
+nix develop          # devshell: go, golangci-lint, goreleaser, gh
+go test ./...        # unit + e2e tests
+nix build            # build the package (verifies the vendorHash)
+goreleaser release --snapshot --clean   # test the release archives locally
+```
 
 ### explore (TUI)
 
