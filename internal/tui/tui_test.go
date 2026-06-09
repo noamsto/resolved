@@ -409,6 +409,68 @@ func TestListColumnsAlign(t *testing.T) {
 	}
 }
 
+func TestDetailScrollHidesLeftContent(t *testing.T) {
+	f := model.Finding{
+		Reference: model.Reference{File: "a.go", Line: 1, Owner: "o", Repo: "r", Number: 1, Type: model.TypeIssue},
+		Status:    model.Status{State: "open", Title: "LEFTPART_" + strings.Repeat("x", 40) + "_RIGHTPART"},
+		Tier:      model.TierOpen,
+	}
+	m := New([]model.Finding{f}, Deps{}, Mocha())
+	m.width, m.height = 60, 20
+
+	at0 := strip(m.renderDetail(30, 12))
+	if !strings.Contains(at0, "LEFTPART_") {
+		t.Fatalf("unscrolled detail should show the title start:\n%s", at0)
+	}
+	m.detailScroll = 20
+	scrolled := strip(m.renderDetail(30, 12))
+	if strings.Contains(scrolled, "LEFTPART_") {
+		t.Fatalf("scrolled detail should hide the left of the title:\n%s", scrolled)
+	}
+}
+
+func TestKeyScrollsDetailHorizontally(t *testing.T) {
+	fs := []model.Finding{
+		{Reference: model.Reference{File: "a.go", Line: 1, Owner: "o", Repo: "r", Number: 1}, Tier: model.TierOpen},
+		{Reference: model.Reference{File: "b.go", Line: 1, Owner: "o", Repo: "r", Number: 2}, Tier: model.TierOpen},
+	}
+	m := New(fs, Deps{}, Mocha())
+	nm, _ := m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+	m = nm.(Model)
+
+	altL := tea.KeyPressMsg{Code: 'l', Mod: tea.ModAlt} // alt+letter has no printable Text
+	altH := tea.KeyPressMsg{Code: 'h', Mod: tea.ModAlt}
+
+	nm, _ = m.Update(altL)
+	m = nm.(Model)
+	if m.detailScroll == 0 {
+		t.Fatal("alt+l should scroll the detail right")
+	}
+	right := m.detailScroll
+
+	nm, _ = m.Update(altH)
+	m = nm.(Model)
+	if m.detailScroll >= right {
+		t.Fatalf("alt+h should scroll left: %d", m.detailScroll)
+	}
+
+	for range 5 {
+		nm, _ = m.Update(altH)
+		m = nm.(Model)
+	}
+	if m.detailScroll != 0 {
+		t.Fatalf("scroll should floor at 0: %d", m.detailScroll)
+	}
+
+	nm, _ = m.Update(altL)
+	m = nm.(Model)
+	nm, _ = m.Update(tea.KeyPressMsg{Code: 'j', Text: "j"})
+	m = nm.(Model)
+	if m.detailScroll != 0 {
+		t.Fatalf("moving the cursor should reset detail scroll: %d", m.detailScroll)
+	}
+}
+
 func TestApplyStatusesDropsBareGone(t *testing.T) {
 	bare := model.Finding{Reference: model.Reference{Owner: "o", Repo: "r", Number: 9, Kind: model.KindBare}}
 	url := model.Finding{Reference: model.Reference{Owner: "o", Repo: "r", Number: 8, Kind: model.KindURL}}
