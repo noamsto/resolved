@@ -489,8 +489,20 @@ func TestLoadingViewShowsSpinnerAndProgress(t *testing.T) {
 	if !strings.Contains(out, "resolving 1/3 issues…") {
 		t.Fatalf("loading view missing progress counter:\n%s", out)
 	}
-	if !strings.Contains(out, "[…") {
-		t.Fatalf("unresolved row should show '…' placeholder:\n%s", out)
+	if !strings.Contains(out, "o/r#1") {
+		t.Fatalf("refs should be painted while statuses resolve:\n%s", out)
+	}
+}
+
+func TestFindingRowUnresolvedShowsPlaceholder(t *testing.T) {
+	f := model.Finding{
+		Reference: model.Reference{File: "a.go", Line: 1, Owner: "o", Repo: "r", Number: 1},
+		Tier:      model.TierUnknown, // no status yet
+	}
+	m := New([]model.Finding{f}, Deps{}, Mocha())
+	row := strip(m.renderFindingRow(f, false, m.locColWidth(80), 80))
+	if !strings.Contains(row, "…") {
+		t.Fatalf("unresolved row should show '…' state placeholder: %q", row)
 	}
 }
 
@@ -504,10 +516,31 @@ func TestFindingRowShowsStateAndTitle(t *testing.T) {
 	nm, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 30})
 	m = nm.(Model)
 	row := strip(m.renderFindingRow(f, false, m.locColWidth(120), 120))
-	for _, want := range []string{"[closed", "o/r#1", "the bug title"} {
+	for _, want := range []string{"closed", "o/r#1", "the bug title"} {
 		if !strings.Contains(row, want) {
 			t.Fatalf("row missing %q in: %q", want, row)
 		}
+	}
+	if strings.Contains(row, "[") {
+		t.Fatalf("state should render without brackets: %q", row)
+	}
+}
+
+func TestFindingRowShowsParentDirFile(t *testing.T) {
+	f := model.Finding{
+		Reference: model.Reference{File: "internal/net/http/handler.go", Line: 51, Owner: "o", Repo: "r", Number: 1},
+		Status:    model.Status{State: "open"},
+		Tier:      model.TierOpen,
+	}
+	m := New([]model.Finding{f}, Deps{}, Mocha()) // default sort is tier (flat)
+	nm, _ := m.Update(tea.WindowSizeMsg{Width: 140, Height: 30})
+	m = nm.(Model)
+	row := strip(m.renderFindingRow(f, false, m.locColWidth(140), 140))
+	if !strings.Contains(row, "http/handler.go:51") {
+		t.Fatalf("row should show parent_dir/file: %q", row)
+	}
+	if strings.Contains(row, "internal/net/http") {
+		t.Fatalf("row should not show the full path: %q", row)
 	}
 }
 
@@ -529,13 +562,19 @@ func TestFindingRowTruncatesLongTitle(t *testing.T) {
 	}
 }
 
-func TestFilenameWidthScalesWithPane(t *testing.T) {
-	f := mkF("a/very/long/path/to/some/file.go", 1, model.TierOpen, time.Time{})
+func TestRowTitleScalesWithPane(t *testing.T) {
+	// The location is a fixed parent_dir/file now, so the width-adaptive part of
+	// a row is the title: a wider pane should show more of it.
+	f := model.Finding{
+		Reference: model.Reference{File: "a/very/long/path/to/some/file.go", Line: 1, Owner: "o", Repo: "r", Number: 1},
+		Status:    model.Status{State: "open", Title: strings.Repeat("word ", 60)},
+		Tier:      model.TierOpen,
+	}
 	m := New([]model.Finding{f}, Deps{}, Mocha())
 	narrow := strip(m.renderFindingRow(f, false, m.locColWidth(40), 40))
 	wide := strip(m.renderFindingRow(f, false, m.locColWidth(100), 100))
 	if len(strings.TrimSpace(wide)) <= len(strings.TrimSpace(narrow)) {
-		t.Fatalf("wider pane should show a longer row:\nnarrow=%q\nwide=%q", narrow, wide)
+		t.Fatalf("wider pane should show more of the title:\nnarrow=%q\nwide=%q", narrow, wide)
 	}
 }
 

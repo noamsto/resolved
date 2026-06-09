@@ -27,6 +27,18 @@ func collapseHome(p string) string {
 	return p
 }
 
+// shortLoc renders the last two path components (parent_dir/file) — enough to
+// disambiguate common basenames like handler.go without spending row width on
+// the full path, which stays available in the detail pane.
+func shortLoc(p string) string {
+	dir, file := filepath.Split(p)
+	parent := filepath.Base(filepath.Clean(dir))
+	if parent == "." || parent == string(os.PathSeparator) {
+		return file
+	}
+	return parent + "/" + file
+}
+
 // displayPath renders p relative to the scan root when it's under the root;
 // otherwise it falls back to the ~-collapsed absolute path. The real path is
 // unchanged elsewhere (editor/snippet use it).
@@ -126,7 +138,7 @@ func (m Model) locColWidth(width int) int {
 		if m.mode == modeFile {
 			loc = fmt.Sprintf(":%d", f.Line)
 		} else {
-			loc = fmt.Sprintf("%s:%d", m.displayPath(f.File), f.Line)
+			loc = fmt.Sprintf("%s:%d", shortLoc(f.File), f.Line)
 		}
 		if w := lipgloss.Width(loc); w > maxLoc {
 			maxLoc = w
@@ -202,24 +214,24 @@ func (m Model) renderFindingRow(f model.Finding, selected bool, locW, width int)
 
 	var loc string
 	if m.mode == modeFile {
-		loc = lineStr
+		loc = lineStr // the file group header already carries the full path
 	} else {
 		nameBudget := locW - lipgloss.Width(lineStr)
 		if nameBudget < 3 {
 			nameBudget = 3
 		}
-		loc = trimMid(m.displayPath(f.File), nameBudget) + lineStr
+		loc = trimMid(shortLoc(f.File), nameBudget) + lineStr
 	}
 	locCell := lipgloss.NewStyle().Width(locW).Render(loc)
 
-	// State + title surface the fetched issue info in the row (file:line lives
-	// in the detail pane). %-7s pads to "unknown" so the ref column stays aligned;
-	// an empty state renders "…" while it's still being resolved.
+	// State + title surface the fetched issue info in the row. %-7s pads to
+	// "unknown" so the ref column stays aligned; an empty state renders "…"
+	// while it's still being resolved.
 	state := f.State
 	if state == "" {
 		state = "…"
 	}
-	row := marker + icon + " " + locCell + " " + fmt.Sprintf("[%-7s]", state) + " " + ref
+	row := marker + icon + " " + locCell + " " + fmt.Sprintf("%-7s", state) + " " + ref
 	if f.Title != "" {
 		row += " — " + f.Title
 	}
