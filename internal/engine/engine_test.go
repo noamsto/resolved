@@ -140,14 +140,14 @@ func TestRunCountsUnsupportedFilesAsSkipped(t *testing.T) {
 	dir := t.TempDir()
 	goFile := writeFile(t, dir, "a.go",
 		"package main\n// TODO https://github.com/o/r/issues/1\nfunc main(){}\n")
-	csFile := writeFile(t, dir, "b.cs",
+	unknownFile := writeFile(t, dir, "b.zzqq",
 		"// TODO https://github.com/o/r/issues/2\nclass C {}\n")
 
 	fetcher := &fakeFetcher{statuses: map[string]model.Status{
 		"o/r#1": {State: "open", Title: "x"},
 	}}
 	res, err := Run(context.Background(), Options{
-		Targets:  []string{goFile, csFile},
+		Targets:  []string{goFile, unknownFile},
 		Keywords: []string{"TODO"},
 		Cache:    cache.New(t.TempDir()),
 		GitHub:   fetcher,
@@ -159,6 +159,6 @@ func TestRunCountsUnsupportedFilesAsSkipped(t *testing.T) {
 		t.Fatalf("Scanned = %d, want 1 (only the parsed .go file)", res.Summary.Scanned)
 	}
 	if res.Summary.Skipped != 1 {
-		t.Fatalf("Skipped = %d, want 1 (the unsupported .cs file)", res.Summary.Skipped)
+		t.Fatalf("Skipped = %d, want 1 (the unsupported .zzqq file)", res.Summary.Skipped)
 	}
 }

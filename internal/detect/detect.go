@@ -1,10 +1,10 @@
 package detect
 
 import (
-	"context"
 	"strings"
 
-	sitter "github.com/smacker/go-tree-sitter"
+	"github.com/alecthomas/chroma/v2"
+	"github.com/alecthomas/chroma/v2/lexers"
 )
 
 // Comment is a single comment node's text and 1-based position.
@@ -14,41 +14,44 @@ type Comment struct {
 	Col  int
 }
 
-// Comments parses src for path's language and returns all comment nodes.
-// Returns (nil, nil) for unsupported extensions so callers can skip silently.
+// Supported reports whether a lexer matches path, i.e. whether Comments can
+// extract anything from it.
+func Supported(path string) bool {
+	return lexers.Match(path) != nil
+}
+
+// Comments tokenizes src with the lexer matched to path and returns every
+// comment token's text with its 1-based position. Returns (nil, nil) when no
+// lexer matches path, so callers can skip silently. String/code tokens are
+// never returned, so a reference inside a literal is not mistaken for a comment.
 func Comments(path string, src []byte) ([]Comment, error) {
-	lang := languageFor(path)
-	if lang == nil {
+	lexer := lexers.Match(path)
+	if lexer == nil {
 		return nil, nil
 	}
-
-	parser := sitter.NewParser()
-	parser.SetLanguage(lang)
-	tree, err := parser.ParseCtx(context.Background(), nil, src)
+	it, err := chroma.Coalesce(lexer).Tokenise(nil, string(src))
 	if err != nil {
 		return nil, err
 	}
-	defer tree.Close()
 
 	var out []Comment
-	var walk func(n *sitter.Node)
-	walk = func(n *sitter.Node) {
-		// Grammars name comment nodes "comment", "line_comment",
-		// "block_comment", etc. Matching the substring covers them all.
-		if strings.Contains(n.Type(), "comment") {
-			start := n.StartPoint()
+	line, col := 1, 0 // col is a 0-based byte offset within the current line
+	for _, tok := range it.Tokens() {
+		if tok.Type.InCategory(chroma.Comment) {
 			out = append(out, Comment{
-				Text: n.Content(src),
-				Line: int(start.Row) + 1,
-				Col:  int(start.Column) + 1,
+				Text: strings.TrimRight(tok.Value, "\r\n"),
+				Line: line,
+				Col:  col + 1,
 			})
-			return
 		}
-		for i := 0; i < int(n.ChildCount()); i++ {
-			walk(n.Child(i))
+		for i := 0; i < len(tok.Value); i++ {
+			if tok.Value[i] == '\n' {
+				line++
+				col = 0
+			} else {
+				col++
+			}
 		}
 	}
-	walk(tree.RootNode())
-
 	return out, nil
 }

@@ -15,15 +15,14 @@
           pname = "resolved";
           version = "0.1.0";
           src = ./.;
-          vendorHash = "sha256-UFtvqOD3n/0zoFqOv20o79RqTnDSfFxlCkQKkcW1dxk=";
-          env.CGO_ENABLED = "1"; # tree-sitter needs cgo
+          vendorHash = "sha256-BIf+Yy3S7+Ie1/q9D/iDegz83/dLpYciwt03T/NlAbY=";
+          env.CGO_ENABLED = "0";
           ldflags = [ "-s" "-w" ];
         };
 
         devShells.default = pkgs.mkShell {
           packages = [
             pkgs.go
-            pkgs.gcc # CGO for tree-sitter
             pkgs.gopls
             pkgs.golangci-lint
             pkgs.goreleaser
