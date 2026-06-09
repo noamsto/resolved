@@ -431,7 +431,7 @@ func TestDetailScrollHidesLeftContent(t *testing.T) {
 
 func TestKeyScrollsDetailHorizontally(t *testing.T) {
 	fs := []model.Finding{
-		{Reference: model.Reference{File: "a.go", Line: 1, Owner: "o", Repo: "r", Number: 1}, Tier: model.TierOpen},
+		{Reference: model.Reference{File: "a.go", Line: 1, Owner: "o", Repo: "r", Number: 1}, Status: model.Status{Title: strings.Repeat("x", 200)}, Tier: model.TierOpen},
 		{Reference: model.Reference{File: "b.go", Line: 1, Owner: "o", Repo: "r", Number: 2}, Tier: model.TierOpen},
 	}
 	m := New(fs, Deps{}, Mocha())
@@ -468,6 +468,46 @@ func TestKeyScrollsDetailHorizontally(t *testing.T) {
 	m = nm.(Model)
 	if m.detailScroll != 0 {
 		t.Fatalf("moving the cursor should reset detail scroll: %d", m.detailScroll)
+	}
+}
+
+func TestDetailScrollNoOpWhenContentFits(t *testing.T) {
+	f := model.Finding{
+		Reference: model.Reference{File: "a.go", Line: 1, Owner: "o", Repo: "r", Number: 1, Type: model.TypeIssue},
+		Status:    model.Status{State: "open", Title: "tiny"},
+		Tier:      model.TierOpen,
+	}
+	m := New([]model.Finding{f}, Deps{}, Mocha())
+	nm, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 30})
+	m = nm.(Model)
+	for range 20 {
+		nm, _ = m.Update(tea.KeyPressMsg{Code: 'l', Mod: tea.ModAlt})
+		m = nm.(Model)
+	}
+	if m.detailScroll != 0 {
+		t.Fatalf("content fits the pane; scroll-right must stay at 0, got %d", m.detailScroll)
+	}
+}
+
+func TestDetailScrollStopsAtContentEnd(t *testing.T) {
+	f := model.Finding{
+		Reference: model.Reference{File: "a.go", Line: 1, Owner: "o", Repo: "r", Number: 1, Type: model.TypeIssue},
+		Status:    model.Status{State: "open", Title: strings.Repeat("x", 300)},
+		Tier:      model.TierOpen,
+	}
+	m := New([]model.Finding{f}, Deps{}, Mocha())
+	nm, _ := m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+	m = nm.(Model)
+	for range 100 {
+		nm, _ = m.Update(tea.KeyPressMsg{Code: 'l', Mod: tea.ModAlt})
+		m = nm.(Model)
+	}
+	mx := m.maxDetailScroll()
+	if mx == 0 {
+		t.Fatal("long content should permit some scroll")
+	}
+	if m.detailScroll != mx {
+		t.Fatalf("scroll must clamp at content end (%d), got %d", mx, m.detailScroll)
 	}
 }
 
