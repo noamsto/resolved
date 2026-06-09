@@ -1,17 +1,117 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
 	"runtime"
+	"sort"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/noamsto/resolved/internal/cache"
+	"github.com/noamsto/resolved/internal/engine"
+	"github.com/noamsto/resolved/internal/gitctx"
+	"github.com/noamsto/resolved/internal/github"
 	"github.com/noamsto/resolved/internal/model"
 	"github.com/noamsto/resolved/internal/tui"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 )
+
+// scanRefs runs the fast local pass: references without resolved statuses, so
+// the explore TUI can paint them before any network call.
+func scanRefs(cfg scanConfig) ([]model.Finding, error) {
+	targets, err := resolveTargets(cfg.dir, cfg.args, cfg.staged, cfg.diffRef, cfg.exclude)
+	if err != nil {
+		return nil, err
+	}
+	owner, repo := "", ""
+	if cfg.bare {
+		owner, repo, _ = gitctx.OriginRepo(cfg.dir)
+	}
+	findings, _, err := engine.Scan(engine.Options{
+		Targets: targets, Keywords: cfg.keywords, Owner: owner, Repo: repo,
+	})
+	return findings, err
+}
+
+// resolveStream resolves statuses for findings' unique issues, streaming a batch
+// per chunk so the TUI fills rows progressively. Cached statuses come first (a
+// repeat open is near-instant); misses are fetched in batches. It closes the
+// channel when done, and stops quietly if no GitHub credential is available.
+func resolveStream(cfg scanConfig, findings []model.Finding) <-chan tui.StatusBatch {
+	out := make(chan tui.StatusBatch)
+	go func() {
+		defer close(out)
+
+		seen := map[string]model.Reference{}
+		for _, f := range findings {
+			if _, ok := seen[f.Key()]; !ok {
+				seen[f.Key()] = f.Reference
+			}
+		}
+		total := len(seen)
+		if total == 0 {
+			return
+		}
+
+		var c *cache.Cache
+		if cfg.noCache {
+			c = cache.Disabled()
+		} else {
+			c = cache.New(defaultCacheDir())
+		}
+
+		cached := map[string]model.Status{}
+		var misses []model.Reference
+		for key, r := range seen {
+			if st, ok := c.Get(key); ok {
+				cached[key] = st
+			} else {
+				misses = append(misses, r)
+			}
+		}
+		done := 0
+		if len(cached) > 0 {
+			done = len(cached)
+			out <- tui.StatusBatch{Statuses: cached, Done: done, Total: total}
+		}
+		if len(misses) == 0 {
+			return
+		}
+
+		fetcher := cfg.fetcher
+		if fetcher == nil {
+			client, err := github.NewClient()
+			if err != nil {
+				return
+			}
+			fetcher = client
+		}
+		// Deterministic order keeps batches stable across runs.
+		sort.Slice(misses, func(i, j int) bool { return misses[i].Key() < misses[j].Key() })
+
+		const batchSize = 12
+		for start := 0; start < len(misses); start += batchSize {
+			end := start + batchSize
+			if end > len(misses) {
+				end = len(misses)
+			}
+			chunk := misses[start:end]
+			statuses, err := fetcher.Fetch(context.Background(), chunk)
+			if err != nil {
+				return
+			}
+			for k, st := range statuses {
+				c.Put(k, st)
+			}
+			done += len(chunk)
+			out <- tui.StatusBatch{Statuses: statuses, Done: done, Total: total}
+		}
+	}()
+	return out
+}
 
 // exploreFindings runs the scan pipeline and returns just the findings.
 func exploreFindings(cfg scanConfig) ([]model.Finding, error) {
@@ -119,27 +219,26 @@ func init() {
 				staged: staged, diffRef: diffRef, exclude: exclude, noCache: noCache, bare: bare,
 			}
 
-			findings, err := exploreFindings(cfg)
-			if err != nil {
-				return err
-			}
-
 			theme, err := tui.ThemeByName(themeName)
 			if err != nil {
 				return err
 			}
 
+			// Don't block on the network: paint refs from the local scan, then
+			// stream statuses in. New starts in the loading state when Scan is set.
 			deps := tui.Deps{
 				OpenURL:   openInBrowser,
 				EditorCmd: editorCmd,
 				Root:      dir,
+				Scan:      func() ([]model.Finding, error) { return scanRefs(cfg) },
+				Resolve:   func(fs []model.Finding) <-chan tui.StatusBatch { return resolveStream(cfg, fs) },
 				Rescan: func() ([]model.Finding, error) {
 					rc := cfg
 					rc.noCache = true // explicit refresh always re-queries GitHub
 					return exploreFindings(rc)
 				},
 			}
-			p := tea.NewProgram(tui.New(findings, deps, theme))
+			p := tea.NewProgram(tui.New(nil, deps, theme))
 			_, err = p.Run()
 			return err
 		},

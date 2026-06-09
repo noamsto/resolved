@@ -105,7 +105,10 @@ func (m Model) renderHeader(width int) string {
 
 func (m Model) renderFooter(width int) string {
 	help := "j/k move · s sort · ⏎ open · e edit · y/Y yank · r refresh · q quit"
-	if m.status != "" {
+	switch {
+	case m.loading:
+		help = m.spinner() + " " + m.loadProgress() + "   " + help
+	case m.status != "":
 		help = m.status + "   " + help
 	}
 	inner := width - m.styles.footer.GetHorizontalFrameSize()
@@ -146,9 +149,25 @@ func (m Model) locColWidth(width int) int {
 	return budget
 }
 
+// spinner returns the current braille frame.
+func (m Model) spinner() string {
+	return spinFrames[m.spinFrame%len(spinFrames)]
+}
+
+// loadProgress describes the current load phase for the footer.
+func (m Model) loadProgress() string {
+	if m.resolveTotal == 0 {
+		return "scanning…"
+	}
+	return fmt.Sprintf("resolving %d/%d issues…", m.resolveDone, m.resolveTotal)
+}
+
 func (m Model) renderList(width int) string {
 	rows := m.displayRows()
 	if len(rows) == 0 {
+		if m.loading {
+			return m.spinner() + " " + m.loadProgress()
+		}
 		return "no references found"
 	}
 	vh := m.listHeight()
@@ -193,7 +212,19 @@ func (m Model) renderFindingRow(f model.Finding, selected bool, locW, width int)
 	}
 	locCell := lipgloss.NewStyle().Width(locW).Render(loc)
 
-	row := marker + icon + " " + locCell + " " + ref
+	// State + title surface the fetched issue info in the row (file:line lives
+	// in the detail pane). %-7s pads to "unknown" so the ref column stays aligned;
+	// an empty state renders "…" while it's still being resolved.
+	state := f.State
+	if state == "" {
+		state = "…"
+	}
+	row := marker + icon + " " + locCell + " " + fmt.Sprintf("[%-7s]", state) + " " + ref
+	if f.Title != "" {
+		row += " — " + f.Title
+	}
+	// Truncate instead of letting a long title wrap the row past the pane width.
+	row = ansi.Truncate(row, width, "…")
 	if selected {
 		return m.styles.selectedRowFor(f.Tier).Width(width).Render(row)
 	}

@@ -27,6 +27,48 @@ func TestExploreFindings(t *testing.T) {
 	}
 }
 
+func TestScanRefsReturnsUnresolved(t *testing.T) {
+	dir := t.TempDir()
+	writeTestFile(t, dir, "a.go",
+		"package main\n// TODO https://github.com/o/r/issues/1\nfunc main(){}\n")
+	findings, err := scanRefs(scanConfig{dir: dir, args: []string{dir}, keywords: []string{"TODO"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(findings) != 1 || findings[0].State != "" {
+		t.Fatalf("scanRefs should return refs without statuses: %+v", findings)
+	}
+}
+
+func TestResolveStreamFillsStatuses(t *testing.T) {
+	dir := t.TempDir()
+	writeTestFile(t, dir, "a.go",
+		"package main\n// TODO https://github.com/o/r/issues/1\nfunc main(){}\n")
+	cfg := scanConfig{
+		dir: dir, args: []string{dir}, keywords: []string{"TODO"}, noCache: true,
+		fetcher: stubFetcher{statuses: map[string]model.Status{"o/r#1": {State: "closed", Title: "bug"}}},
+	}
+	findings, err := scanRefs(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var got model.Status
+	var lastTotal int
+	for b := range resolveStream(cfg, findings) {
+		lastTotal = b.Total
+		if st, ok := b.Statuses["o/r#1"]; ok {
+			got = st
+		}
+	}
+	if got.State != "closed" || got.Title != "bug" {
+		t.Fatalf("resolveStream missed status: %+v", got)
+	}
+	if lastTotal != 1 {
+		t.Fatalf("total = %d, want 1", lastTotal)
+	}
+}
+
 func TestTmuxPopupArgs(t *testing.T) {
 	got := tmuxPopupArgs("/usr/bin/resolved", "/work", []string{"explore", "--theme", "latte"})
 	want := []string{
