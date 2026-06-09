@@ -54,6 +54,64 @@ func (m Model) displayPath(p string) string {
 	return collapseHome(p)
 }
 
+// paneWidths returns the outer widths of the list and detail panes (even split,
+// with floors for narrow terminals). The detail width includes its border.
+func (m Model) paneWidths() (listW, detailW int) {
+	width := m.width
+	if width <= 0 {
+		width = 80
+	}
+	listW = width / 2 // even split: rows carry state + title, so the list earns
+	if listW < 24 {   // as much width as the source-preview pane
+		listW = 24
+	}
+	detailW = width - listW
+	if detailW < 20 {
+		detailW = 20
+	}
+	return listW, detailW
+}
+
+// detailInnerWidth is the usable text width inside the detail pane (its outer
+// width minus the border/padding frame).
+func (m Model) detailInnerWidth() int {
+	_, detailW := m.paneWidths()
+	inner := detailW - m.styles.pane.GetHorizontalFrameSize()
+	if inner < 6 {
+		inner = 6
+	}
+	return inner
+}
+
+// maxDetailScroll caps horizontal scrolling at the point where the widest piece
+// of detail content (a metadata line or a source line) has just been read, so
+// the user can't scroll off into empty space. ~gutter accounts for the pinned
+// line-number column the preview keeps on the left.
+func (m Model) maxDetailScroll() int {
+	f, ok := m.current()
+	if !ok {
+		return 0
+	}
+	const gutter = 8
+	widest := ansi.StringWidth(f.Title)
+	for _, s := range []string{issueURL(f), m.displayPath(f.File)} {
+		if w := ansi.StringWidth(s); w > widest {
+			widest = w
+		}
+	}
+	if src, ok := m.sources.lines(f.File); ok {
+		for _, ln := range src {
+			if w := ansi.StringWidth(ln) + gutter; w > widest {
+				widest = w
+			}
+		}
+	}
+	if over := widest - m.detailInnerWidth(); over > 0 {
+		return over
+	}
+	return 0
+}
+
 // renderAll composes header + (list | detail) + footer into the full screen.
 func (m Model) renderAll() string {
 	width := m.width
@@ -64,14 +122,7 @@ func (m Model) renderAll() string {
 	header := m.renderHeader(width)
 	footer := m.renderFooter(width)
 
-	listW := width / 2 // even split: the rows now carry state + title, so the
-	if listW < 24 {    // list earns as much width as the source-preview pane
-		listW = 24
-	}
-	detailW := width - listW // Width includes the border, so the panes tile exactly
-	if detailW < 20 {
-		detailW = 20
-	}
+	listW, detailW := m.paneWidths()
 
 	ph := m.listHeight()
 	paneH := ph + 2                                 // Height includes the border; ph is the inner content height
@@ -80,10 +131,7 @@ func (m Model) renderAll() string {
 	if listInner < 6 {
 		listInner = 6
 	}
-	detailInner := detailW - frame
-	if detailInner < 6 {
-		detailInner = 6
-	}
+	detailInner := m.detailInnerWidth()
 	// MaxHeight hard-clips: Height is only a minimum, and content that wraps
 	// would otherwise grow the pane and push the footer off-screen.
 	body := lipgloss.JoinHorizontal(

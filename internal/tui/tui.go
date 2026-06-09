@@ -191,7 +191,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			m.detailScroll = 0
 		case "alt+l", "alt+right":
-			m.detailScroll += detailScrollStep
+			m.detailScroll = min(m.detailScroll+detailScrollStep, m.maxDetailScroll())
 		case "alt+h", "alt+left":
 			m.detailScroll = max(0, m.detailScroll-detailScrollStep)
 		case "enter":
