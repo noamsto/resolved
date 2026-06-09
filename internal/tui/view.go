@@ -27,11 +27,13 @@ func collapseHome(p string) string {
 	return p
 }
 
-// shortLoc renders the last two path components (parent_dir/file) — enough to
-// disambiguate common basenames like handler.go without spending row width on
-// the full path, which stays available in the detail pane.
-func shortLoc(p string) string {
-	dir, file := filepath.Split(p)
+// shortLoc renders the last two components of the root-relative path
+// (parent_dir/file) — enough to disambiguate common basenames like handler.go
+// without spending row width on the full path. Deriving it from displayPath
+// keeps it consistent with the detail pane, so a file at the scan root shows
+// just its name (it has no parent), not the repo directory name.
+func (m Model) shortLoc(p string) string {
+	dir, file := filepath.Split(m.displayPath(p))
 	parent := filepath.Base(filepath.Clean(dir))
 	if parent == "." || parent == string(os.PathSeparator) {
 		return file
@@ -138,7 +140,7 @@ func (m Model) locColWidth(width int) int {
 		if m.mode == modeFile {
 			loc = fmt.Sprintf(":%d", f.Line)
 		} else {
-			loc = fmt.Sprintf("%s:%d", shortLoc(f.File), f.Line)
+			loc = fmt.Sprintf("%s:%d", m.shortLoc(f.File), f.Line)
 		}
 		if w := lipgloss.Width(loc); w > maxLoc {
 			maxLoc = w
@@ -220,7 +222,7 @@ func (m Model) renderFindingRow(f model.Finding, selected bool, locW, width int)
 		if nameBudget < 3 {
 			nameBudget = 3
 		}
-		loc = trimMid(shortLoc(f.File), nameBudget) + lineStr
+		loc = trimMid(m.shortLoc(f.File), nameBudget) + lineStr
 	}
 	locCell := lipgloss.NewStyle().Width(locW).Render(loc)
 

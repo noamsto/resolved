@@ -544,6 +544,29 @@ func TestFindingRowShowsParentDirFile(t *testing.T) {
 	}
 }
 
+func TestRowShortLocIsRootRelative(t *testing.T) {
+	deep := model.Finding{
+		Reference: model.Reference{File: "/repo/home/ai/claude-code/default.nix", Line: 8, Owner: "o", Repo: "r", Number: 1},
+		Status:    model.Status{State: "open"}, Tier: model.TierOpen,
+	}
+	root := model.Finding{
+		Reference: model.Reference{File: "/repo/flake.nix", Line: 1, Owner: "o", Repo: "r", Number: 2},
+		Status:    model.Status{State: "open"}, Tier: model.TierOpen,
+	}
+	m := New([]model.Finding{deep, root}, Deps{Root: "/repo"}, Mocha())
+	nm, _ := m.Update(tea.WindowSizeMsg{Width: 140, Height: 30})
+	m = nm.(Model)
+
+	dr := strip(m.renderFindingRow(deep, false, m.locColWidth(140), 140))
+	if !strings.Contains(dr, "claude-code/default.nix:8") {
+		t.Fatalf("deep path should trim to last two components: %q", dr)
+	}
+	rr := strip(m.renderFindingRow(root, false, m.locColWidth(140), 140))
+	if !strings.Contains(rr, "flake.nix:1") || strings.Contains(rr, "repo/flake.nix") {
+		t.Fatalf("root-level file should show no parent dir (not the repo name): %q", rr)
+	}
+}
+
 func TestFindingRowTruncatesLongTitle(t *testing.T) {
 	f := model.Finding{
 		Reference: model.Reference{File: "a.go", Line: 2, Owner: "o", Repo: "r", Number: 1},
