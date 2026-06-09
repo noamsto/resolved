@@ -64,8 +64,8 @@ func (m Model) renderAll() string {
 	header := m.renderHeader(width)
 	footer := m.renderFooter(width)
 
-	listW := width * 2 / 5
-	if listW < 24 {
+	listW := width / 2 // even split: the rows now carry state + title, so the
+	if listW < 24 {    // list earns as much width as the source-preview pane
 		listW = 24
 	}
 	detailW := width - listW // Width includes the border, so the panes tile exactly
