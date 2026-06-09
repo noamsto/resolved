@@ -30,7 +30,7 @@ func TestExploreFindings(t *testing.T) {
 func TestTmuxPopupArgs(t *testing.T) {
 	got := tmuxPopupArgs("/usr/bin/resolved", "/work", []string{"explore", "--theme", "latte"})
 	want := []string{
-		"display-popup", "-E", "-w", "90%", "-h", "90%", "-d", "/work", "--",
+		"display-popup", "-E", "-e", "RESOLVED_IN_POPUP=1", "-w", "90%", "-h", "90%", "-d", "/work", "--",
 		"/usr/bin/resolved", "explore", "--theme", "latte",
 	}
 	if !slices.Equal(got, want) {
@@ -39,11 +39,12 @@ func TestTmuxPopupArgs(t *testing.T) {
 }
 
 func TestTmuxPopupArgsPreservesDoubleDash(t *testing.T) {
-	// The recursion guard is an env var, not a flag, so a user's `--` (which
-	// would turn a trailing flag into a positional arg) must pass through clean.
+	// The recursion guard is injected with `-e` (an env var, not a CLI flag of
+	// ours), so a user's `--` — which would turn a trailing flag into a
+	// positional arg — must pass through clean.
 	got := tmuxPopupArgs("/usr/bin/resolved", "/work", []string{"explore", "--", "weird-path"})
 	want := []string{
-		"display-popup", "-E", "-w", "90%", "-h", "90%", "-d", "/work", "--",
+		"display-popup", "-E", "-e", "RESOLVED_IN_POPUP=1", "-w", "90%", "-h", "90%", "-d", "/work", "--",
 		"/usr/bin/resolved", "explore", "--", "weird-path",
 	}
 	if !slices.Equal(got, want) {
