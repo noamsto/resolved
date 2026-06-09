@@ -89,28 +89,40 @@ never blocks a commit and never edits without confirmation. The skill is the sin
 source of truth for the recipe; the command delegates to it.
 
 **`skills/check-stale-refs/SKILL.md`** — auto-trigger, **on-demand intent only**.
-Fires when the user is reasoning about stale/dead issue references — "is this TODO
-still open?", "do any comments point at closed issues?", "check my issue refs". No
-commit-lifecycle coupling. Recipe:
-1. **Step zero:** run the plugin's `scripts/bootstrap.sh` (locate via the skill's
-   base directory, falling back to a glob under `~/.claude/plugins/cache/resolved/`),
-   capture stdout as `$BIN`. On failure, stop and show its error.
+Frontmatter declares `allowed-tools: Bash, Read, Edit` (bootstrap+scan need Bash,
+the fix step needs Read/Edit). Fires when the user is reasoning about stale/dead
+issue references — "is this TODO still open?", "do any comments point at closed
+issues?", "check my issue refs". No commit-lifecycle coupling. Recipe:
+1. **Step zero:** run the plugin's `scripts/bootstrap.sh` — at `<base>/../../scripts/bootstrap.sh`
+   from the skill's injected base directory (`.../cache/resolved/resolved/<version>/skills/check-stale-refs/`),
+   `./scripts/bootstrap.sh` in a dev checkout, else
+   `ls -t ~/.claude/plugins/cache/resolved/resolved/*/scripts/bootstrap.sh | head -1`.
+   Capture stdout (one line) as `$BIN`. On failure, stop and show its error.
 2. `PATH="$BIN:$PATH" resolved scan --json` over the **whole repo** by default (each
    Bash call is a fresh shell — the `PATH=` prefix is per-invocation).
+   **Exit codes are data, not failure:** `0` = clean, `1` = findings matched the
+   `--fail-on` tier (the *expected* signal — capture stdout and continue), `2` = real
+   error (bad flag, scan failure, missing GitHub credential — stop and surface it).
+   Invoke so a `1` exit doesn't abort the step and stdout is still captured.
 3. Parse the JSON `findings`. Summarize as `file:line → <state> #<number> "<title>"`,
-   grouped by tier (stale / closed). Lead with the `summary` counts.
+   grouped by tier (stale / closed). Lead with the `summary` counts. `findings` empty
+   → say so and stop.
 4. **Warn + offer to fix:** for stale/closed refs, offer to update or remove the
    comment, then wait for the user's go-ahead before editing. Never edits unprompted.
 
-**`commands/stale.md`** — explicit, on-demand `/stale [paths...]`. Thin: runs step
-zero, then defers to the skill's recipe for summarize/fix. Scope:
+**`commands/stale.md`** — explicit, on-demand `/stale [paths...]`. Thin by
+*delegation*, not duplication: a command is a prompt, so its body parses
+`$ARGUMENTS` into a scope (paths and/or narrowing flags) and then **instructs Claude
+to invoke the `check-stale-refs` skill with that scope** — the skill remains the one
+place the bootstrap+scan+fix recipe (incl. exit-code handling) lives. Scope:
 - **Default: whole-repo scan.** Staleness is independent of what you're touching, so
   the repo is the natural unit; `--staged`/`--diff` are speed/noise knobs, not the
   default.
 - Optional `$ARGUMENTS` path args narrow the scan to those paths.
 - Pass-through narrowing flags: `--diff <ref>`, `--staged`, `--fail-on`,
-  `--keywords`, `--exclude`. The skill may pass `--diff main` itself when the context
-  is clearly "just my branch," purely for speed.
+  `--keywords`, `--exclude`. When narrowing to "just my branch" for speed, scope via
+  the merge-base with the default branch (`--diff "$(git rev-parse --abbrev-ref origin/HEAD)"`
+  or the repo's actual default), never a hard-coded `main`.
 
 The on-disk cache (`internal/cache`) keeps repeated whole-repo scans cheap, so
 whole-repo-by-default is not expensive in practice.
