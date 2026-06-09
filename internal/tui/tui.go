@@ -3,6 +3,7 @@ package tui
 import (
 	"fmt"
 	"sort"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/noamsto/resolved/internal/model"
@@ -34,6 +35,21 @@ type Deps struct {
 	EditorCmd func(file string, line int) tea.Cmd // open a source line in $EDITOR
 	Rescan    func() ([]model.Finding, error)     // re-run the scan
 	Root      string                              // scan base dir; list paths render relative to it (empty => ~-collapsed absolute)
+
+	// Scan and Resolve drive the progressive startup load: Scan does the fast
+	// local pass (refs, unresolved), then Resolve streams status batches over a
+	// channel it closes when done. When Scan is nil, New uses the findings it's
+	// given directly (the path tests take).
+	Scan    func() ([]model.Finding, error)
+	Resolve func(findings []model.Finding) <-chan StatusBatch
+}
+
+// StatusBatch is one increment of resolved statuses streamed during loading.
+// Done/Total count unique issues, for the progress readout.
+type StatusBatch struct {
+	Statuses map[string]model.Status
+	Done     int
+	Total    int
 }
 
 // editorDoneMsg is delivered when the external editor process exits.
@@ -47,6 +63,17 @@ type rescanDoneMsg struct {
 	findings []model.Finding
 	err      error
 }
+
+// Progressive-load messages: scannedMsg paints the local refs, statusBatchMsg
+// fills a chunk of resolved statuses, resolveDoneMsg ends loading, spinTickMsg
+// advances the spinner.
+type scannedMsg struct {
+	findings []model.Finding
+	err      error
+}
+type statusBatchMsg StatusBatch
+type resolveDoneMsg struct{}
+type spinTickMsg struct{}
 
 // Model is the Bubble Tea model for the explore TUI.
 type Model struct {
@@ -62,9 +89,18 @@ type Model struct {
 	styles     Styles
 	theme      Theme
 	mode       sortMode
+
+	loading      bool
+	spinFrame    int
+	resolveDone  int
+	resolveTotal int
+	batches      <-chan StatusBatch
 }
 
-// New builds a Model with findings sorted by tier (stale first).
+var spinFrames = []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
+
+// New builds a Model with findings sorted by tier (stale first). With no
+// findings and a Scan dep, it starts in the loading state and fetches on Init.
 func New(findings []model.Finding, deps Deps, theme Theme) Model {
 	return Model{
 		findings: sortFindings(findings, modeTier),
@@ -72,10 +108,65 @@ func New(findings []model.Finding, deps Deps, theme Theme) Model {
 		sources:  newSourceCache(),
 		theme:    theme,
 		styles:   newStyles(theme),
+		loading:  len(findings) == 0 && deps.Scan != nil,
 	}
 }
 
-func (m Model) Init() tea.Cmd { return nil }
+func (m Model) Init() tea.Cmd {
+	if !m.loading {
+		return nil
+	}
+	return tea.Batch(m.scanCmd(), m.spinCmd())
+}
+
+func (m Model) scanCmd() tea.Cmd {
+	return func() tea.Msg {
+		fs, err := m.deps.Scan()
+		return scannedMsg{findings: fs, err: err}
+	}
+}
+
+func (m Model) spinCmd() tea.Cmd {
+	return tea.Tick(120*time.Millisecond, func(time.Time) tea.Msg { return spinTickMsg{} })
+}
+
+// waitBatch reads the next streamed status batch; a closed channel ends loading.
+func (m Model) waitBatch() tea.Cmd {
+	ch := m.batches
+	return func() tea.Msg {
+		b, ok := <-ch
+		if !ok {
+			return resolveDoneMsg{}
+		}
+		return statusBatchMsg(b)
+	}
+}
+
+// applyStatuses fills resolved statuses into matching findings and reclassifies
+// their tier. A bare #n that resolves to "gone" never named a real issue, so it
+// is dropped (mirrors engine.Run).
+func applyStatuses(findings []model.Finding, statuses map[string]model.Status) []model.Finding {
+	out := findings[:0]
+	for _, f := range findings {
+		if st, ok := statuses[f.Key()]; ok {
+			f.Status = st
+			f.Tier = model.ClassifyTier(st.State, f.Keyword)
+			if f.Kind == model.KindBare && st.State == "gone" {
+				continue
+			}
+		}
+		out = append(out, f)
+	}
+	return out
+}
+
+func uniqueKeys(findings []model.Finding) int {
+	seen := make(map[string]struct{}, len(findings))
+	for _, f := range findings {
+		seen[f.Key()] = struct{}{}
+	}
+	return len(seen)
+}
 
 // Update handles key and async messages. Side-effects go through m.deps.
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -129,6 +220,38 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.status = "yanked " + url
 				return m, tea.SetClipboard(url)
 			}
+		}
+	case scannedMsg:
+		if msg.err != nil {
+			m.loading = false
+			m.status = "scan failed: " + msg.err.Error()
+			return m, nil
+		}
+		m.findings = sortFindings(msg.findings, m.mode)
+		if m.deps.Resolve != nil && len(m.findings) > 0 {
+			m.resolveTotal = uniqueKeys(m.findings)
+			m.batches = m.deps.Resolve(m.findings)
+			return m, m.waitBatch()
+		}
+		m.loading = false
+	case statusBatchMsg:
+		m.findings = applyStatuses(m.findings, msg.Statuses)
+		if m.cursor >= len(m.findings) {
+			m.cursor = max(0, len(m.findings)-1)
+		}
+		m.resolveDone = msg.Done
+		return m, m.waitBatch()
+	case resolveDoneMsg:
+		m.loading = false
+		m.findings = sortFindings(m.findings, m.mode)
+		if m.cursor >= len(m.findings) {
+			m.cursor = max(0, len(m.findings)-1)
+		}
+		m.status = fmt.Sprintf("%d refs", len(m.findings))
+	case spinTickMsg:
+		if m.loading {
+			m.spinFrame++
+			return m, m.spinCmd()
 		}
 	case rescanDoneMsg:
 		if msg.err != nil {

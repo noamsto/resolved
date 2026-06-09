@@ -136,6 +136,29 @@ func TestRunDedupesAndUsesCache(t *testing.T) {
 	}
 }
 
+func TestScanReturnsUnclassifiedFindings(t *testing.T) {
+	dir := t.TempDir()
+	f := writeFile(t, dir, "a.go",
+		"package main\n// TODO https://github.com/o/r/issues/1\nfunc main(){}\n")
+
+	findings, summary, err := Scan(Options{Targets: []string{f}, Keywords: []string{"TODO"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(findings) != 1 {
+		t.Fatalf("got %d findings, want 1", len(findings))
+	}
+	if findings[0].Tier != model.TierUnknown {
+		t.Fatalf("tier = %v, want unknown (no status fetched yet)", findings[0].Tier)
+	}
+	if findings[0].State != "" {
+		t.Fatalf("state = %q, want empty before resolve", findings[0].State)
+	}
+	if summary.Scanned != 1 || summary.Refs != 1 {
+		t.Fatalf("summary = %+v, want scanned=1 refs=1", summary)
+	}
+}
+
 func TestRunCountsUnsupportedFilesAsSkipped(t *testing.T) {
 	dir := t.TempDir()
 	goFile := writeFile(t, dir, "a.go",

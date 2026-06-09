@@ -84,6 +84,22 @@ func Run(ctx context.Context, opts Options) (Result, error) {
 	return res, nil
 }
 
+// Scan runs the local pass only: it extracts references and reports scan/skip
+// counts without resolving any statuses. Findings come back unclassified
+// (TierUnknown, empty Status) so a caller can paint them before the network
+// fetch — used by the explore TUI to show refs while statuses stream in.
+func Scan(opts Options) ([]model.Finding, Summary, error) {
+	refs, scanned, skipped, err := scanTargets(opts)
+	if err != nil {
+		return nil, Summary{}, err
+	}
+	findings := make([]model.Finding, 0, len(refs))
+	for _, r := range refs {
+		findings = append(findings, model.Finding{Reference: r, Tier: model.TierUnknown})
+	}
+	return findings, Summary{Scanned: scanned, Skipped: skipped, Refs: len(findings), Unknown: len(findings)}, nil
+}
+
 // scanTargets reads every target file and extracts references with keywords.
 // skipped counts targets with no grammar — surfaced so an all-unsupported repo
 // doesn't read as a clean scan.

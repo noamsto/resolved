@@ -409,6 +409,126 @@ func TestListColumnsAlign(t *testing.T) {
 	}
 }
 
+func TestApplyStatusesDropsBareGone(t *testing.T) {
+	bare := model.Finding{Reference: model.Reference{Owner: "o", Repo: "r", Number: 9, Kind: model.KindBare}}
+	url := model.Finding{Reference: model.Reference{Owner: "o", Repo: "r", Number: 8, Kind: model.KindURL}}
+	out := applyStatuses([]model.Finding{bare, url}, map[string]model.Status{
+		"o/r#9": {State: "gone"},
+		"o/r#8": {State: "gone"},
+	})
+	if len(out) != 1 || out[0].Number != 8 {
+		t.Fatalf("bare gone should drop, explicit gone should stay: %+v", out)
+	}
+	if out[0].Tier != model.TierGone {
+		t.Fatalf("resolved finding should reclassify: %+v", out[0])
+	}
+}
+
+func TestProgressiveLoadFillsStatuses(t *testing.T) {
+	f := model.Finding{
+		Reference: model.Reference{File: "a.go", Line: 2, Owner: "o", Repo: "r", Number: 1, Type: model.TypeIssue, Keyword: "TODO"},
+		Tier:      model.TierUnknown,
+	}
+	ch := make(chan StatusBatch, 1)
+	close(ch) // handler stores it but we drive messages manually
+	deps := Deps{
+		Scan:    func() ([]model.Finding, error) { return []model.Finding{f}, nil },
+		Resolve: func([]model.Finding) <-chan StatusBatch { return ch },
+	}
+	m := New(nil, deps, Mocha())
+	if !m.loading {
+		t.Fatal("expected loading state at startup when Scan is provided")
+	}
+
+	nm, _ := m.Update(scannedMsg{findings: []model.Finding{f}})
+	m = nm.(Model)
+	if len(m.findings) != 1 || m.findings[0].Tier != model.TierUnknown {
+		t.Fatalf("scan should paint unresolved refs: %+v", m.findings)
+	}
+
+	nm, _ = m.Update(statusBatchMsg{
+		Statuses: map[string]model.Status{"o/r#1": {State: "closed", Title: "bug"}},
+		Done:     1, Total: 1,
+	})
+	m = nm.(Model)
+	if m.findings[0].Title != "bug" || m.findings[0].Tier != model.TierStale {
+		t.Fatalf("batch should fill status + reclassify: %+v", m.findings[0])
+	}
+
+	nm, _ = m.Update(resolveDoneMsg{})
+	m = nm.(Model)
+	if m.loading {
+		t.Fatal("loading should end after resolveDone")
+	}
+}
+
+func TestLoadingViewShowsSpinnerAndProgress(t *testing.T) {
+	deps := Deps{Scan: func() ([]model.Finding, error) { return nil, nil }}
+	m := New(nil, deps, Mocha())
+	nm, _ := m.Update(tea.WindowSizeMsg{Width: 100, Height: 24})
+	m = nm.(Model)
+	if !m.loading {
+		t.Fatal("expected loading state")
+	}
+
+	// Before the scan returns: empty list + footer say "scanning…".
+	out := strip(m.View().Content)
+	if !strings.Contains(out, "scanning…") {
+		t.Fatalf("loading view missing 'scanning…':\n%s", out)
+	}
+
+	// Refs painted, statuses resolving: footer shows the N/M counter and the
+	// unresolved row shows the "…" state placeholder.
+	m.findings = []model.Finding{{
+		Reference: model.Reference{File: "a.go", Line: 1, Owner: "o", Repo: "r", Number: 1},
+		Tier:      model.TierUnknown,
+	}}
+	m.resolveTotal = 3
+	m.resolveDone = 1
+	out = strip(m.View().Content)
+	if !strings.Contains(out, "resolving 1/3 issues…") {
+		t.Fatalf("loading view missing progress counter:\n%s", out)
+	}
+	if !strings.Contains(out, "[…") {
+		t.Fatalf("unresolved row should show '…' placeholder:\n%s", out)
+	}
+}
+
+func TestFindingRowShowsStateAndTitle(t *testing.T) {
+	f := model.Finding{
+		Reference: model.Reference{File: "a.go", Line: 2, Owner: "o", Repo: "r", Number: 1, Type: model.TypeIssue},
+		Status:    model.Status{State: "closed", Title: "the bug title"},
+		Tier:      model.TierClosed,
+	}
+	m := New([]model.Finding{f}, Deps{}, Mocha())
+	nm, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 30})
+	m = nm.(Model)
+	row := strip(m.renderFindingRow(f, false, m.locColWidth(120), 120))
+	for _, want := range []string{"[closed", "o/r#1", "the bug title"} {
+		if !strings.Contains(row, want) {
+			t.Fatalf("row missing %q in: %q", want, row)
+		}
+	}
+}
+
+func TestFindingRowTruncatesLongTitle(t *testing.T) {
+	f := model.Finding{
+		Reference: model.Reference{File: "a.go", Line: 2, Owner: "o", Repo: "r", Number: 1},
+		Status:    model.Status{State: "open", Title: strings.Repeat("x", 200)},
+		Tier:      model.TierOpen,
+	}
+	m := New([]model.Finding{f}, Deps{}, Mocha())
+	nm, _ := m.Update(tea.WindowSizeMsg{Width: 80, Height: 30})
+	m = nm.(Model)
+	row := strip(m.renderFindingRow(f, false, m.locColWidth(40), 40))
+	if strings.Contains(row, strings.Repeat("x", 200)) {
+		t.Fatalf("long title not truncated: %q", row)
+	}
+	if !strings.Contains(row, "…") {
+		t.Fatalf("expected truncation ellipsis in: %q", row)
+	}
+}
+
 func TestFilenameWidthScalesWithPane(t *testing.T) {
 	f := mkF("a/very/long/path/to/some/file.go", 1, model.TierOpen, time.Time{})
 	m := New([]model.Finding{f}, Deps{}, Mocha())
@@ -524,7 +644,9 @@ func TestColumnsLeftPacked(t *testing.T) {
 	if off < 0 {
 		t.Fatalf("ref missing: %q", row)
 	}
-	if off > 24 {
+	// Left-packed: ref sits just after the location + fixed [state] column, far
+	// from where a right-stretched ref (~width-len(ref)) would land.
+	if off > 36 {
 		t.Fatalf("ref not left-packed (sits at offset %d, expected near the filename): %q", off, row)
 	}
 }
