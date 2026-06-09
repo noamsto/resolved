@@ -95,7 +95,11 @@ type Model struct {
 	resolveDone  int
 	resolveTotal int
 	batches      <-chan StatusBatch
+
+	detailScroll int // horizontal column offset for the detail/preview pane
 }
+
+const detailScrollStep = 8
 
 var spinFrames = []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
 
@@ -180,10 +184,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.cursor < len(m.findings)-1 {
 				m.cursor++
 			}
+			m.detailScroll = 0 // a new finding's preview starts at the left
 		case "up", "k":
 			if m.cursor > 0 {
 				m.cursor--
 			}
+			m.detailScroll = 0
+		case "alt+l", "alt+right":
+			m.detailScroll += detailScrollStep
+		case "alt+h", "alt+left":
+			m.detailScroll = max(0, m.detailScroll-detailScrollStep)
 		case "enter":
 			if f, ok := m.current(); ok && m.deps.OpenURL != nil {
 				url := issueURL(f)

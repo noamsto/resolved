@@ -118,7 +118,7 @@ func (m Model) renderHeader(width int) string {
 }
 
 func (m Model) renderFooter(width int) string {
-	help := "j/k move · s sort · ⏎ open · e edit · y/Y yank · r refresh · q quit"
+	help := "j/k · ⌥h/l scroll · s sort · ⏎ open · e edit · y/Y yank · r refresh · q quit"
 	switch {
 	case m.loading:
 		help = m.spinner() + " " + m.loadProgress() + "   " + help
@@ -266,8 +266,12 @@ func (m Model) renderDetail(width, height int) string {
 		"",
 	}
 	// Truncate instead of letting lipgloss wrap: a wrapped line grows the pane
-	// past its Height and pushes the footer off-screen.
+	// past its Height and pushes the footer off-screen. detailScroll shifts the
+	// window right so a long URL/title can be read past the pane edge.
 	for i, ln := range lines {
+		if m.detailScroll > 0 {
+			ln = ansi.TruncateLeft(ln, m.detailScroll, "")
+		}
 		lines[i] = ansi.Truncate(ln, width, "…")
 	}
 	if avail := height - len(lines); avail >= 1 {
@@ -313,6 +317,11 @@ func (m Model) renderPreview(f model.Finding, width, avail int) []string {
 		if n == f.Line {
 			marker = "▶"
 			g = lipgloss.NewStyle().Bold(true).Foreground(m.theme.Accent).Render(fmt.Sprintf("%*d", gutterW, n))
+		}
+		// Scroll the code horizontally but keep the marker + line-number gutter
+		// pinned, so you don't lose your place while reading a long line.
+		if m.detailScroll > 0 {
+			ln = ansi.TruncateLeft(ln, m.detailScroll, "")
 		}
 		out = append(out, ansi.Truncate(fmt.Sprintf("%s %s │ %s", marker, g, ln), width, "…"))
 	}
