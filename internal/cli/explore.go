@@ -46,9 +46,12 @@ func shouldPopup(noPopup bool) bool {
 }
 
 // tmuxPopupArgs builds the `tmux display-popup` argv that re-runs this binary
-// (self) with the original CLI args inside a floating pane rooted at dir.
+// (self) with the original CLI args inside a floating pane rooted at dir. The
+// guard is passed with `-e`: display-popup runs its command from the tmux
+// server, which does not inherit the caller's environment, so setting the var
+// on our own process would not reach the inner run and it would pop up again.
 func tmuxPopupArgs(self, dir string, cliArgs []string) []string {
-	args := []string{"display-popup", "-E", "-w", "90%", "-h", "90%", "-d", dir, "--", self}
+	args := []string{"display-popup", "-E", "-e", popupGuardEnv + "=1", "-w", "90%", "-h", "90%", "-d", dir, "--", self}
 	return append(args, cliArgs...)
 }
 
@@ -66,7 +69,6 @@ func relaunchInPopup() error {
 	}
 	c := exec.Command("tmux", tmuxPopupArgs(self, dir, os.Args[1:])...)
 	c.Stdin, c.Stdout, c.Stderr = os.Stdin, os.Stdout, os.Stderr
-	c.Env = append(os.Environ(), popupGuardEnv+"=1")
 	return c.Run()
 }
 
