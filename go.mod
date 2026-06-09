@@ -4,17 +4,16 @@ go 1.25.0
 
 require (
 	charm.land/bubbletea/v2 v2.0.7
-	github.com/smacker/go-tree-sitter v0.0.0-20240827094217-dd81d9e9be82
+	charm.land/lipgloss/v2 v2.0.3
+	github.com/alecthomas/chroma/v2 v2.26.1
+	github.com/charmbracelet/x/ansi v0.11.7
 	github.com/spf13/cobra v1.10.2
 	golang.org/x/term v0.43.0
 )
 
 require (
-	charm.land/lipgloss/v2 v2.0.3 // indirect
-	github.com/alecthomas/chroma/v2 v2.26.1 // indirect
 	github.com/charmbracelet/colorprofile v0.4.3 // indirect
 	github.com/charmbracelet/ultraviolet v0.0.0-20260525132238-948f4557a654 // indirect
-	github.com/charmbracelet/x/ansi v0.11.7 // indirect
 	github.com/charmbracelet/x/term v0.2.2 // indirect
 	github.com/charmbracelet/x/termios v0.1.1 // indirect
 	github.com/charmbracelet/x/windows v0.2.2 // indirect
