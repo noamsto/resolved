@@ -34,19 +34,22 @@ func openInBrowser(url string) error {
 	}
 }
 
+// popupGuardEnv marks a process already running inside the popup, so the inner
+// run doesn't spawn another. An env var (not a flag) is used because flags after
+// a user's `--` become positional args and would defeat the guard.
+const popupGuardEnv = "RESOLVED_IN_POPUP"
+
 // shouldPopup reports whether explore should relaunch itself inside a tmux
-// floating popup: only when running under tmux and not already guarded.
+// floating popup: only under tmux, not opted out, and not already in a popup.
 func shouldPopup(noPopup bool) bool {
-	return !noPopup && os.Getenv("TMUX") != ""
+	return !noPopup && os.Getenv("TMUX") != "" && os.Getenv(popupGuardEnv) == ""
 }
 
 // tmuxPopupArgs builds the `tmux display-popup` argv that re-runs this binary
-// (self) with the original CLI args inside a floating pane rooted at dir. The
-// trailing --no-popup guards against infinite re-launch.
+// (self) with the original CLI args inside a floating pane rooted at dir.
 func tmuxPopupArgs(self, dir string, cliArgs []string) []string {
 	args := []string{"display-popup", "-E", "-w", "90%", "-h", "90%", "-d", dir, "--", self}
-	args = append(args, cliArgs...)
-	return append(args, "--no-popup")
+	return append(args, cliArgs...)
 }
 
 // relaunchInPopup re-execs explore inside a tmux floating popup. display-popup
@@ -63,6 +66,7 @@ func relaunchInPopup() error {
 	}
 	c := exec.Command("tmux", tmuxPopupArgs(self, dir, os.Args[1:])...)
 	c.Stdin, c.Stdout, c.Stderr = os.Stdin, os.Stdout, os.Stderr
+	c.Env = append(os.Environ(), popupGuardEnv+"=1")
 	return c.Run()
 }
 
@@ -94,11 +98,11 @@ func init() {
 		Use:   "explore [paths...]",
 		Short: "Interactively browse stale GitHub references",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if shouldPopup(noPopup) {
-				return relaunchInPopup()
-			}
 			if !term.IsTerminal(int(os.Stdout.Fd())) {
 				return fmt.Errorf("explore requires an interactive terminal; use `resolved scan` for piped output")
+			}
+			if shouldPopup(noPopup) {
+				return relaunchInPopup()
 			}
 			dir, err := os.Getwd()
 			if err != nil {

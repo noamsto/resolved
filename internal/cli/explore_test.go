@@ -31,7 +31,20 @@ func TestTmuxPopupArgs(t *testing.T) {
 	got := tmuxPopupArgs("/usr/bin/resolved", "/work", []string{"explore", "--theme", "latte"})
 	want := []string{
 		"display-popup", "-E", "-w", "90%", "-h", "90%", "-d", "/work", "--",
-		"/usr/bin/resolved", "explore", "--theme", "latte", "--no-popup",
+		"/usr/bin/resolved", "explore", "--theme", "latte",
+	}
+	if !slices.Equal(got, want) {
+		t.Fatalf("popup args mismatch:\n got: %v\nwant: %v", got, want)
+	}
+}
+
+func TestTmuxPopupArgsPreservesDoubleDash(t *testing.T) {
+	// The recursion guard is an env var, not a flag, so a user's `--` (which
+	// would turn a trailing flag into a positional arg) must pass through clean.
+	got := tmuxPopupArgs("/usr/bin/resolved", "/work", []string{"explore", "--", "weird-path"})
+	want := []string{
+		"display-popup", "-E", "-w", "90%", "-h", "90%", "-d", "/work", "--",
+		"/usr/bin/resolved", "explore", "--", "weird-path",
 	}
 	if !slices.Equal(got, want) {
 		t.Fatalf("popup args mismatch:\n got: %v\nwant: %v", got, want)
@@ -39,6 +52,7 @@ func TestTmuxPopupArgs(t *testing.T) {
 }
 
 func TestShouldPopup(t *testing.T) {
+	t.Setenv(popupGuardEnv, "")
 	t.Setenv("TMUX", "")
 	if shouldPopup(false) {
 		t.Fatal("no TMUX: should not popup")
@@ -49,6 +63,10 @@ func TestShouldPopup(t *testing.T) {
 	}
 	if shouldPopup(true) {
 		t.Fatal("--no-popup must override TMUX")
+	}
+	t.Setenv(popupGuardEnv, "1")
+	if shouldPopup(false) {
+		t.Fatal("already in popup: must not re-launch")
 	}
 }
 
