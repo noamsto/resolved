@@ -52,3 +52,7 @@ Sorting: press `s` to cycle tier → by-file (grouped under file headers) → re
 (newest first). Theme it with `--theme mocha|latte|frappe|macchiato` (default
 `mocha`, Catppuccin). The list shows tier-color-coded references (stale=red,
 gone=peach, closed=muted, open=green); a wider terminal shows longer file paths.
+
+Inside tmux, `explore` relaunches itself in a floating popup (90% × 90%) so the
+TUI overlays your current pane instead of taking it over; closing the TUI returns
+you to where you were. Pass `--no-popup` to run inline in the current pane.
