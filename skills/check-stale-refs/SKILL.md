@@ -24,17 +24,20 @@ If bootstrap exits non-zero, stop and show its stderr — do not continue.
 
 ## Step 1 — scan
 
-Run, over the **whole repo** by default:
+Run, over the **whole repo** by default, appending the exit code to stdout so a
+non-zero scan exit is not surfaced as a failed tool call:
 
-    PATH="$BIN:$PATH" resolved scan --json
+    PATH="$BIN:$PATH" resolved scan --json; echo "scan_exit=$?"
 
 (Each Bash call is a fresh shell, so the `PATH=` prefix must be on the scan
-command itself, not a separate `export`.)
+command itself, not a separate `export`. The trailing `echo` makes the Bash call
+exit `0` regardless — the real scan exit lands in the `scan_exit=` line, with the
+JSON above it.)
 
-**Exit codes are data, not failure:**
+Read `scan_exit` — it is **data, not failure**:
 - `0` — clean, no findings at/above the fail-on tier.
 - `1` — findings matched the tier (default `stale`). This is the *expected*
-  signal: the JSON was still printed to stdout — read it and continue.
+  signal: parse the JSON above and continue.
 - `2` — real error (bad flag, scan failure, or no GitHub credential:
   `GITHUB_TOKEN`/`GH_TOKEN` or `gh auth login`). Stop and surface the message.
 
