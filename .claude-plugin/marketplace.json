@@ -1,0 +1,7 @@
+{
+  "name": "resolved",
+  "owner": { "name": "noamsto" },
+  "plugins": [
+    { "name": "resolved", "source": "./" }
+  ]
+}
