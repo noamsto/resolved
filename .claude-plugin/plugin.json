@@ -1,5 +1,5 @@
 {
   "name": "resolved",
   "description": "Check code comments for stale GitHub issue/PR references from inside a Claude Code session.",
-  "version": "0.1.0"
+  "version": "0.1.1"
 }
