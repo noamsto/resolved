@@ -151,7 +151,10 @@ func filterByAttrs(dir string, paths []string) ([]string, error) {
 	cmd.Stdin = strings.NewReader(strings.Join(paths, "\x00") + "\x00")
 	out, err := cmd.Output()
 	if err != nil {
-		return nil, err
+		// check-attr exits non-zero when a path is outside the repo (e.g. an
+		// explicit out-of-repo file arg). Attribute filtering is best-effort,
+		// never fatal: fall back to the unfiltered set.
+		return paths, nil
 	}
 
 	fields := strings.Split(strings.TrimSuffix(string(out), "\x00"), "\x00")

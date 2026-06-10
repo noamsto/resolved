@@ -147,3 +147,21 @@ func TestResolveTargetsPathWithSpaceSurvives(t *testing.T) {
 		t.Fatalf("path with space should survive the -z round-trip: %v", got)
 	}
 }
+
+func TestResolveTargetsOutOfRepoFileDoesNotAbort(t *testing.T) {
+	repo := t.TempDir()
+	gitInit(t, repo)
+	write(t, repo, "tracked.go", "// x")
+	gitAdd(t, repo)
+
+	outside := t.TempDir()
+	write(t, outside, "stray.go", "// x")
+
+	got, err := resolveTargets(repo, []string{filepath.Join(outside, "stray.go")}, false, "", nil)
+	if err != nil {
+		t.Fatalf("out-of-repo file must not abort: %v", err)
+	}
+	if !has(got, "stray.go") {
+		t.Fatalf("explicit out-of-repo file should be kept: %v", got)
+	}
+}
