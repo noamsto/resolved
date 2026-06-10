@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -163,5 +164,33 @@ func TestResolveTargetsOutOfRepoFileDoesNotAbort(t *testing.T) {
 	}
 	if !has(got, "stray.go") {
 		t.Fatalf("explicit out-of-repo file should be kept: %v", got)
+	}
+}
+
+func TestResolveTargetsExcludesNestedWorktree(t *testing.T) {
+	dir := t.TempDir()
+	gitInit(t, dir)
+	write(t, dir, "main.go", "// x")
+	gitAdd(t, dir)
+	if out, err := exec.Command("git", "-C", dir, "commit", "-m", "init").CombinedOutput(); err != nil {
+		t.Fatalf("git commit: %v\n%s", err, out)
+	}
+
+	wt := filepath.Join(dir, "wt")
+	if out, err := exec.Command("git", "-C", dir, "worktree", "add", wt).CombinedOutput(); err != nil {
+		t.Fatalf("git worktree add: %v\n%s", err, out)
+	}
+
+	got, err := resolveTargets(dir, []string{dir}, false, "", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !has(got, "main.go") {
+		t.Fatalf("want main.go: %v", got)
+	}
+	for _, p := range got {
+		if strings.HasPrefix(p, wt+string(os.PathSeparator)) {
+			t.Fatalf("nested worktree file leaked: %s", p)
+		}
 	}
 }
