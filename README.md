@@ -6,25 +6,44 @@ comment. The CLI companion to [`resolved.nvim`](https://github.com/noamsto/resol
 
 ## Install
 
-`resolved` is also a **Claude Code plugin** (this repo doubles as its own
-single-plugin marketplace):
+Install the `resolved` CLI — the Claude Code plugin runs it from your PATH and
+will not download a binary for you:
+
+```bash
+nix profile install github:noamsto/resolved                  # nix
+go install github.com/noamsto/resolved/cmd/resolved@latest   # or go
+```
+
+Prebuilt binaries for each release are on the
+[releases page](https://github.com/noamsto/resolved/releases). It needs a GitHub
+credential: `GITHUB_TOKEN`/`GH_TOKEN`, or `gh auth login`.
+
+### Claude Code plugin
+
+This repo doubles as its own single-plugin marketplace:
 
 ```
 /plugin marketplace add noamsto/resolved
 /plugin install resolved@resolved
 ```
 
-Then ask Claude about stale references, or run `/stale`. On first use the static
-`resolved` binary auto-downloads for your OS/arch into `~/.cache/resolved/bin`; a
-binary already on PATH (e.g. nix- or `go install`-installed) is used as-is, never
-downloaded over. The only assumptions are `git` and a GitHub credential
-(`GITHUB_TOKEN`/`GH_TOKEN`, or `gh auth login`).
+Then ask Claude about stale references, or run `/stale`. The plugin finds
+`resolved` on your PATH; if it's missing it tells you how to install it — it
+never downloads or runs a fetched binary.
 
 <details>
-<summary>Standalone CLI (without the plugin)</summary>
+<summary>Nix / Home Manager (resolved on PATH)</summary>
 
-```bash
-go install github.com/noamsto/resolved/cmd/resolved@latest
+Add the flake as an input and import the Home Manager module; it puts the
+version-stamped `resolved` on PATH for the plugin:
+
+```nix
+# flake.nix
+inputs.resolved.url = "github:noamsto/resolved";
+
+# home.nix (or any Home Manager module)
+imports = [ inputs.resolved.homeManagerModules.default ];
+programs.resolved.enable = true;
 ```
 
 </details>

@@ -7,17 +7,20 @@
   };
 
   outputs = inputs@{ flake-parts, ... }:
+    let
+      version = (builtins.fromJSON (builtins.readFile ./.claude-plugin/plugin.json)).version;
+    in
     flake-parts.lib.mkFlake { inherit inputs; } {
       systems = [ "x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin" ];
 
       perSystem = { pkgs, ... }: {
         packages.default = pkgs.buildGoModule {
           pname = "resolved";
-          version = "0.1.0";
+          inherit version;
           src = ./.;
           vendorHash = "sha256-BIf+Yy3S7+Ie1/q9D/iDegz83/dLpYciwt03T/NlAbY=";
           env.CGO_ENABLED = "0";
-          ldflags = [ "-s" "-w" ];
+          ldflags = [ "-s" "-w" "-X github.com/noamsto/resolved/internal/cli.version=${version}" ];
         };
 
         devShells.default = pkgs.mkShell {
@@ -29,6 +32,16 @@
             pkgs.gh
             pkgs.git
           ];
+        };
+      };
+
+      # `programs.resolved.enable = true;` puts the resolved CLI on PATH so the
+      # /resolved:stale plugin finds it — no auto-download.
+      flake.homeManagerModules.default = { config, lib, pkgs, ... }: {
+        options.programs.resolved.enable =
+          lib.mkEnableOption "the resolved CLI on PATH for the resolved Claude Code plugin";
+        config = lib.mkIf config.programs.resolved.enable {
+          home.packages = [ inputs.self.packages.${pkgs.stdenv.hostPlatform.system}.default ];
         };
       };
     };

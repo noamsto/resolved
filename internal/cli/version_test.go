@@ -18,7 +18,9 @@ func TestVersionCommand(t *testing.T) {
 	if err := rootCmd.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	if got := strings.TrimSpace(buf.String()); got != "dev" {
-		t.Fatalf("version output = %q, want %q", got, "dev")
+	// Assert against the package var, not a literal: a release build stamps it
+	// via ldflags (e.g. nix build), so the output is not always "dev".
+	if got := strings.TrimSpace(buf.String()); got != version {
+		t.Fatalf("version output = %q, want %q", got, version)
 	}
 }

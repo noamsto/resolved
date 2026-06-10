@@ -10,29 +10,29 @@ Scan the repo's code comments for GitHub issue/PR references that have gone
 stale (the issue closed / the PR merged), then offer to fix them. Advisory:
 never block a commit, never edit without the user's go-ahead.
 
-## Step zero — resolve the binary (always)
+## Step zero — check `resolved` is installed
 
-Run the plugin's `scripts/bootstrap.sh` and capture its stdout (one line) as
-`$BIN`. Locate the script, in order:
+This plugin uses the `resolved` CLI from your PATH; it never downloads a binary.
+Confirm it's present:
 
-1. `<base>/../../scripts/bootstrap.sh`, where `<base>` is this skill's injected
-   base directory (`.../plugins/cache/resolved/resolved/<version>/skills/check-stale-refs/`).
-2. `./scripts/bootstrap.sh` — when working inside a `resolved` dev checkout.
-3. `ls -t ~/.claude/plugins/cache/resolved/resolved/*/scripts/bootstrap.sh | head -1`.
+    command -v resolved
 
-If bootstrap exits non-zero, stop and show its stderr — do not continue.
+If that prints nothing, stop and tell the user to install it, then re-run:
+
+    nix profile install github:noamsto/resolved
+    # or
+    go install github.com/noamsto/resolved/cmd/resolved@latest
+    # or, in Home Manager: programs.resolved.enable = true;
 
 ## Step 1 — scan
 
 Run, over the **whole repo** by default, appending the exit code to stdout so a
 non-zero scan exit is not surfaced as a failed tool call:
 
-    PATH="$BIN:$PATH" resolved scan --json; echo "scan_exit=$?"
+    resolved scan --json; echo "scan_exit=$?"
 
-(Each Bash call is a fresh shell, so the `PATH=` prefix must be on the scan
-command itself, not a separate `export`. The trailing `echo` makes the Bash call
-exit `0` regardless — the real scan exit lands in the `scan_exit=` line, with the
-JSON above it.)
+(The trailing `echo` makes the Bash call exit `0` regardless — the real scan exit
+lands in the `scan_exit=` line, with the JSON above it.)
 
 Read `scan_exit` — it is **data, not failure**:
 - `0` — clean, no findings at/above the fail-on tier.

@@ -4,10 +4,10 @@ allowed-tools: Bash, Read, Edit
 ---
 
 Run the **check-stale-refs** skill to scan this repo for stale GitHub issue/PR
-references and offer to fix them. The skill owns the full recipe (bootstrap →
-`resolved scan --json` → summarize → offer-fix, including scan exit-code
-handling); your only job here is to translate `$ARGUMENTS` into the scan scope
-and then invoke that skill.
+references and offer to fix them. The skill owns the full recipe (check `resolved`
+is installed → `resolved scan --json` → summarize → offer-fix, including scan
+exit-code handling); your only job here is to translate `$ARGUMENTS` into the scan
+scope and then invoke that skill.
 
 **Scope from `$ARGUMENTS`** (default: whole repo — staleness is independent of
 what you are touching, so the repo is the natural unit):
