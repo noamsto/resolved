@@ -117,8 +117,10 @@ func scanTargets(ctx context.Context, opts Options) ([]model.Reference, int, int
 	out := make([]target, len(opts.Targets))
 
 	g, ctx := errgroup.WithContext(ctx)
-	g.SetLimit(runtime.NumCPU())
+	g.SetLimit(runtime.GOMAXPROCS(0))
 	for i, path := range opts.Targets {
+		// Stop queuing new files once an error has cancelled ctx; a goroutine
+		// already blocked in g.Go may still launch, which is harmless.
 		if ctx.Err() != nil {
 			break
 		}
