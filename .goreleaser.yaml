@@ -10,7 +10,7 @@ builds:
     ldflags:
       - -s -w -X github.com/noamsto/resolved/internal/cli.version={{.Version}}
 archives:
-  - # load-bearing: scripts/bootstrap.sh constructs URLs from this exact pattern
+  - # prebuilt binaries for `go install`-free users; the plugin no longer downloads these
     name_template: "resolved_{{ .Os }}_{{ .Arch }}"
     formats: [tar.gz]
 checksum:
