@@ -93,6 +93,21 @@ Concurrency safety verified: chroma's `RegexLexer.maybeCompile()` is guarded by
 iterator; `Coalesce` is per-call; `lexers.Match` is a read-only registry lookup.
 Concurrent `detect.Comments` on the shared per-extension lexer is race-free.
 
+## Edge cases & limitations
+
+- **Args assumed within the current repo.** The git root is resolved once from the
+  process cwd. A directory arg pointing outside that repo (`../sibling`,
+  `/other/repo`) makes `git ls-files -- <arg>` fail with "outside repository" and
+  aborts the scan, where the old `filepath.WalkDir` would have walked it. Accepted:
+  `resolved` is a repo-scoped tool.
+- **check-attr pairing.** `git check-attr -z` emits NUL-separated triples
+  (`path \0 attr \0 info \0`), and the echoed path is not guaranteed to byte-match
+  the input. Results are paired to inputs **by order** (one triple-group per input
+  path, in order), never by string-matching the echoed path.
+- **Unreadable files.** A supported file that fails to read is counted as neither
+  `scanned` nor `skipped` — preserving today's summary numbers. The parallel
+  rewrite's per-target state must tally `unreadable → neither`.
+
 ## Out of scope
 
 - No new third-party dependencies (`golang.org/x/sync` already vendored).
@@ -102,9 +117,17 @@ Concurrent `detect.Comments` on the shared per-extension lexer is race-free.
 
 ## Testing
 
-- `targets_test.go`: a directory arg in a repo skips gitignored + submodule +
-  nested-worktree files; an explicit file arg bypasses gitignore; a non-repo dir
-  still walks (skipping `.git`); `linguist-generated` / `linguist-vendored` files
-  (fixture `.gitattributes`) are dropped.
+Test what we own; trust git for what git owns.
+
+- `targets_test.go` (core — our logic):
+  - directory arg in a repo skips a **gitignored** file but includes tracked ones;
+  - an explicit **file** arg is kept even when gitignored;
+  - a non-repo dir still walks via the fallback, skipping `.git`;
+  - `linguist-generated` / `linguist-vendored` files (fixture `.gitattributes`)
+    are dropped, and a path with a space survives the `-z` round-trip.
+- Submodule / nested-worktree exclusion follows from delegating to `git ls-files`;
+  cover it with **one** cheap local-git integration test (`git worktree add` into
+  a temp repo, assert its files are absent) rather than re-testing git broadly.
 - `engine_test.go`: existing tests pass unchanged (proves determinism); add one
-  asserting order stability across many targets.
+  asserting findings order is stable across many targets, and one for an
+  unreadable supported file (counted as neither scanned nor skipped).
