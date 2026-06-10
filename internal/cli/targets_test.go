@@ -111,3 +111,39 @@ func TestResolveTargetsExcludeGlob(t *testing.T) {
 		t.Fatalf("exclude failed: %v", got)
 	}
 }
+
+func TestResolveTargetsDropsGeneratedAndVendored(t *testing.T) {
+	dir := t.TempDir()
+	gitInit(t, dir)
+	write(t, dir, ".gitattributes", "gen.go linguist-generated=true\nvend.go linguist-vendored\n")
+	write(t, dir, "gen.go", "// x")
+	write(t, dir, "vend.go", "// x")
+	write(t, dir, "keep.go", "// x")
+	gitAdd(t, dir)
+
+	got, err := resolveTargets(dir, []string{dir}, false, "", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !has(got, "keep.go") {
+		t.Fatalf("want keep.go: %v", got)
+	}
+	if has(got, "gen.go") || has(got, "vend.go") {
+		t.Fatalf("generated/vendored should be dropped: %v", got)
+	}
+}
+
+func TestResolveTargetsPathWithSpaceSurvives(t *testing.T) {
+	dir := t.TempDir()
+	gitInit(t, dir)
+	write(t, dir, "a b.go", "// x")
+	gitAdd(t, dir)
+
+	got, err := resolveTargets(dir, []string{dir}, false, "", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !has(got, "a b.go") {
+		t.Fatalf("path with space should survive the -z round-trip: %v", got)
+	}
+}

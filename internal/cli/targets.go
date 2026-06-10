@@ -135,9 +135,41 @@ func gitLines(dir string, args ...string) ([]string, error) {
 	return lines, nil
 }
 
-// filterByAttrs is filled in by a later task; pass-through for now.
+var linguistAttrs = []string{"linguist-generated", "linguist-vendored"}
+
+// filterByAttrs drops paths git marks as linguist-generated or linguist-vendored.
+// It batches one `git check-attr -z` call; -z keeps paths with spaces/colons
+// unambiguous. Results map back to inputs by order — git emits one record per
+// requested attribute per path, in input order — never by the echoed path, which
+// git may normalize.
 func filterByAttrs(dir string, paths []string) ([]string, error) {
-	return paths, nil
+	if len(paths) == 0 {
+		return paths, nil
+	}
+	args := append([]string{"-C", dir, "check-attr", "-z", "--stdin"}, linguistAttrs...)
+	cmd := exec.Command("git", args...)
+	cmd.Stdin = strings.NewReader(strings.Join(paths, "\x00") + "\x00")
+	out, err := cmd.Output()
+	if err != nil {
+		return nil, err
+	}
+
+	fields := strings.Split(strings.TrimSuffix(string(out), "\x00"), "\x00")
+	drop := make([]bool, len(paths))
+	for rec := 0; (rec+1)*3 <= len(fields); rec++ {
+		info := fields[rec*3+2]
+		if info == "set" || info == "true" {
+			drop[rec/len(linguistAttrs)] = true
+		}
+	}
+
+	var kept []string
+	for i, p := range paths {
+		if !drop[i] {
+			kept = append(kept, p)
+		}
+	}
+	return kept, nil
 }
 
 func filterExisting(paths, exclude []string) []string {
