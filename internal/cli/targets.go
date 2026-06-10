@@ -153,7 +153,10 @@ func filterByAttrs(dir string, paths []string) ([]string, error) {
 	if err != nil {
 		// check-attr exits non-zero when a path is outside the repo (e.g. an
 		// explicit out-of-repo file arg). Attribute filtering is best-effort,
-		// never fatal: fall back to the unfiltered set.
+		// never fatal: fall back to the unfiltered set. In a mixed batch this
+		// also skips filtering for the in-repo paths — acceptable, since the
+		// degradation only over-includes (a generated file gets scanned), and
+		// the only reachable case is explicit args mixing in/out-of-repo paths.
 		return paths, nil
 	}
 
