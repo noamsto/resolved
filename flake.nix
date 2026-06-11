@@ -19,6 +19,7 @@
           inherit version;
           src = ./.;
           vendorHash = "sha256-BIf+Yy3S7+Ie1/q9D/iDegz83/dLpYciwt03T/NlAbY=";
+          nativeCheckInputs = [ pkgs.git ];
           env.CGO_ENABLED = "0";
           ldflags = [ "-s" "-w" "-X github.com/noamsto/resolved/internal/cli.version=${version}" ];
         };

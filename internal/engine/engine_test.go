@@ -2,6 +2,7 @@ package engine
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -183,5 +184,64 @@ func TestRunCountsUnsupportedFilesAsSkipped(t *testing.T) {
 	}
 	if res.Summary.Skipped != 1 {
 		t.Fatalf("Skipped = %d, want 1 (the unsupported .zzqq file)", res.Summary.Skipped)
+	}
+}
+
+func TestRunCountsUnreadableAsNeither(t *testing.T) {
+	dir := t.TempDir()
+	good := writeFile(t, dir, "a.go", "package main\n// TODO https://github.com/o/r/issues/1\n")
+	missing := filepath.Join(dir, "ghost.go") // .go is supported, but the file does not exist
+
+	fetcher := &fakeFetcher{statuses: map[string]model.Status{
+		"o/r#1": {State: "open"},
+	}}
+	res, err := Run(context.Background(), Options{
+		Targets:  []string{good, missing},
+		Keywords: []string{"TODO"},
+		Cache:    cache.New(t.TempDir()),
+		GitHub:   fetcher,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Summary.Scanned != 1 {
+		t.Fatalf("Scanned = %d, want 1", res.Summary.Scanned)
+	}
+	if res.Summary.Skipped != 0 {
+		t.Fatalf("Skipped = %d, want 0 (unreadable is neither)", res.Summary.Skipped)
+	}
+}
+
+func TestScanTargetsDeterministicOrder(t *testing.T) {
+	dir := t.TempDir()
+	var targets []string
+	for i := 0; i < 50; i++ {
+		name := fmt.Sprintf("f%02d.go", i)
+		writeFile(t, dir, name,
+			fmt.Sprintf("package main\n// TODO https://github.com/o/r/issues/%d\n", i+1))
+		targets = append(targets, filepath.Join(dir, name))
+	}
+
+	first, _, err := Scan(Options{Targets: targets, Keywords: []string{"TODO"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for run := 0; run < 5; run++ {
+		got, _, err := Scan(Options{Targets: targets, Keywords: []string{"TODO"}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(got) != len(first) {
+			t.Fatalf("run %d: len %d, want %d", run, len(got), len(first))
+		}
+		for i := range got {
+			if got[i].Reference.File != first[i].Reference.File {
+				t.Fatalf("run %d: order diverged at %d: %s vs %s",
+					run, i, got[i].Reference.File, first[i].Reference.File)
+			}
+		}
+	}
+	if first[0].Reference.File != targets[0] {
+		t.Fatalf("findings not in target order: %s vs %s", first[0].Reference.File, targets[0])
 	}
 }
