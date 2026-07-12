@@ -8,7 +8,7 @@ require (
 	github.com/alecthomas/chroma/v2 v2.26.1
 	github.com/charmbracelet/x/ansi v0.11.7
 	github.com/spf13/cobra v1.10.2
-	golang.org/x/sync v0.20.0
+	golang.org/x/sync v0.22.0
 	golang.org/x/term v0.43.0
 )
 
