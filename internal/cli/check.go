@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/alecthomas/kong"
 	"github.com/noamsto/resolved/internal/engine"
 	"github.com/noamsto/resolved/internal/gitctx"
 	"github.com/noamsto/resolved/internal/github"
 	"github.com/noamsto/resolved/internal/model"
 	"github.com/noamsto/resolved/internal/patterns"
-	"github.com/spf13/cobra"
 )
 
 // parseRef turns a single ref string (URL, owner/repo#n, or #n) into a Reference.
@@ -39,34 +39,33 @@ func runCheck(ctx context.Context, ref model.Reference, fetcher engine.StatusFet
 	return model.Finding{Reference: ref, Status: st, Tier: model.ClassifyTier(st.State, ref.Keyword)}, nil
 }
 
-func init() {
-	cmd := &cobra.Command{
-		Use:   "check <url|owner/repo#n|#n>",
-		Short: "Print the status of a single GitHub reference",
-		Long: "Print the status of a single GitHub reference. " +
-			"Exits 1 if the reference is closed or stale; 0 for open/gone/unknown; 2 on tool error.",
-		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			dir, _ := os.Getwd()                     // cwd only used to find git origin; failure is non-fatal
-			owner, repo, _ := gitctx.OriginRepo(dir) // best-effort; empty disables bare #n resolution
-			ref, err := parseRef(args[0], owner, repo)
-			if err != nil {
-				return err
-			}
-			client, err := github.NewClient()
-			if err != nil {
-				return err
-			}
-			f, err := runCheck(context.Background(), ref, client)
-			if err != nil {
-				return err
-			}
-			cmd.Printf("%s#%d  %s  %s\n", f.Owner+"/"+f.Repo, f.Number, f.State, f.Title)
-			if f.Tier == model.TierClosed || f.Tier == model.TierStale {
-				os.Exit(1)
-			}
-			return nil
-		},
+// CheckCmd prints the status of a single GitHub reference.
+type CheckCmd struct {
+	Ref string `arg:"" help:"Reference to check: url, owner/repo#n, or #n"`
+}
+
+func (CheckCmd) Help() string {
+	return "Exits 1 if the reference is closed or stale; 0 for open/gone/unknown; 2 on tool error."
+}
+
+func (c CheckCmd) Run(kctx *kong.Context) error {
+	dir, _ := os.Getwd()                     // cwd only used to find git origin; failure is non-fatal
+	owner, repo, _ := gitctx.OriginRepo(dir) // best-effort; empty disables bare #n resolution
+	ref, err := parseRef(c.Ref, owner, repo)
+	if err != nil {
+		return err
 	}
-	rootCmd.AddCommand(cmd)
+	client, err := github.NewClient()
+	if err != nil {
+		return err
+	}
+	f, err := runCheck(context.Background(), ref, client)
+	if err != nil {
+		return err
+	}
+	fmt.Fprintf(kctx.Stdout, "%s#%d  %s  %s\n", f.Owner+"/"+f.Repo, f.Number, f.State, f.Title)
+	if f.Tier == model.TierClosed || f.Tier == model.TierStale {
+		os.Exit(1)
+	}
+	return nil
 }

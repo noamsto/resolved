@@ -3,18 +3,16 @@ package cli
 import (
 	"fmt"
 
-	"github.com/spf13/cobra"
+	"github.com/alecthomas/kong"
 )
 
 // version is overridden at build time via -ldflags "-X ...cli.version=...".
 var version = "dev"
 
-func init() {
-	rootCmd.AddCommand(&cobra.Command{
-		Use:   "version",
-		Short: "Print the version",
-		Run: func(cmd *cobra.Command, _ []string) {
-			fmt.Fprintln(cmd.OutOrStdout(), version)
-		},
-	})
+// VersionCmd prints the version.
+type VersionCmd struct{}
+
+func (VersionCmd) Run(kctx *kong.Context) error {
+	fmt.Fprintln(kctx.Stdout, version)
+	return nil
 }

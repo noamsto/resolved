@@ -15,7 +15,6 @@ import (
 	"github.com/noamsto/resolved/internal/github"
 	"github.com/noamsto/resolved/internal/model"
 	"github.com/noamsto/resolved/internal/tui"
-	"github.com/spf13/cobra"
 	"golang.org/x/term"
 )
 
@@ -185,71 +184,48 @@ func editorCmd(file string, line int) tea.Cmd {
 	})
 }
 
-func init() {
-	var (
-		exclude   []string
-		keywords  []string
-		staged    bool
-		diffRef   string
-		noCache   bool
-		bare      bool
-		themeName string
-		noPopup   bool
-	)
-	cmd := &cobra.Command{
-		Use:   "explore [paths...]",
-		Short: "Interactively browse stale GitHub references",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			if !term.IsTerminal(int(os.Stdout.Fd())) {
-				return fmt.Errorf("explore requires an interactive terminal; use `resolved scan` for piped output")
-			}
-			if shouldPopup(noPopup) {
-				return relaunchInPopup()
-			}
-			dir, err := os.Getwd()
-			if err != nil {
-				return err
-			}
-			kw := keywords
-			if len(kw) == 0 {
-				kw = defaultKeywords
-			}
-			cfg := scanConfig{
-				dir: dir, args: args, keywords: kw,
-				staged: staged, diffRef: diffRef, exclude: exclude, noCache: noCache, bare: bare,
-			}
+// ExploreCmd interactively browses stale GitHub references.
+type ExploreCmd struct {
+	Paths   []string    `arg:"" optional:"" name:"path" help:"Paths to scan (default: the whole repo)"`
+	Targets targetFlags `embed:""`
 
-			theme, err := tui.ThemeByName(themeName)
-			if err != nil {
-				return err
-			}
+	Theme   string `default:"mocha" help:"color theme: mocha|latte|frappe|macchiato"`
+	NoPopup bool   `help:"run inline in the current pane instead of a tmux floating popup"`
+}
 
-			// Don't block on the network: paint refs from the local scan, then
-			// stream statuses in. New starts in the loading state when Scan is set.
-			deps := tui.Deps{
-				OpenURL:   openInBrowser,
-				EditorCmd: editorCmd,
-				Root:      dir,
-				Scan:      func() ([]model.Finding, error) { return scanRefs(cfg) },
-				Resolve:   func(fs []model.Finding) <-chan tui.StatusBatch { return resolveStream(cfg, fs) },
-				Rescan: func() ([]model.Finding, error) {
-					rc := cfg
-					rc.noCache = true // explicit refresh always re-queries GitHub
-					return exploreFindings(rc)
-				},
-			}
-			p := tea.NewProgram(tui.New(nil, deps, theme))
-			_, err = p.Run()
-			return err
+func (c ExploreCmd) Run() error {
+	if !term.IsTerminal(int(os.Stdout.Fd())) {
+		return fmt.Errorf("explore requires an interactive terminal; use `resolved scan` for piped output")
+	}
+	if shouldPopup(c.NoPopup) {
+		return relaunchInPopup()
+	}
+	dir, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+	cfg := c.Targets.config(dir, c.Paths)
+
+	theme, err := tui.ThemeByName(c.Theme)
+	if err != nil {
+		return err
+	}
+
+	// Don't block on the network: paint refs from the local scan, then
+	// stream statuses in. New starts in the loading state when Scan is set.
+	deps := tui.Deps{
+		OpenURL:   openInBrowser,
+		EditorCmd: editorCmd,
+		Root:      dir,
+		Scan:      func() ([]model.Finding, error) { return scanRefs(cfg) },
+		Resolve:   func(fs []model.Finding) <-chan tui.StatusBatch { return resolveStream(cfg, fs) },
+		Rescan: func() ([]model.Finding, error) {
+			rc := cfg
+			rc.noCache = true // explicit refresh always re-queries GitHub
+			return exploreFindings(rc)
 		},
 	}
-	cmd.Flags().BoolVar(&staged, "staged", false, "scan only git-staged files")
-	cmd.Flags().StringVar(&diffRef, "diff", "", "scan only files changed vs this git ref")
-	cmd.Flags().StringSliceVar(&exclude, "exclude", nil, "glob(s) to exclude by base name")
-	cmd.Flags().StringSliceVar(&keywords, "keywords", nil, "stale keywords (default TODO,FIXME,HACK,XXX,BUG)")
-	cmd.Flags().BoolVar(&noCache, "no-cache", false, "bypass the on-disk cache")
-	cmd.Flags().BoolVar(&bare, "bare", false, "also match bare #123 references against the origin repo (noisy in active repos)")
-	cmd.Flags().StringVar(&themeName, "theme", "mocha", "color theme: mocha|latte|frappe|macchiato")
-	cmd.Flags().BoolVar(&noPopup, "no-popup", false, "run inline in the current pane instead of a tmux floating popup")
-	rootCmd.AddCommand(cmd)
+	p := tea.NewProgram(tui.New(nil, deps, theme))
+	_, err = p.Run()
+	return err
 }

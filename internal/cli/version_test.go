@@ -7,15 +7,8 @@ import (
 )
 
 func TestVersionCommand(t *testing.T) {
-	t.Cleanup(func() {
-		rootCmd.SetOut(nil)
-		rootCmd.SetArgs(nil)
-	})
-
 	buf := new(bytes.Buffer)
-	rootCmd.SetOut(buf)
-	rootCmd.SetArgs([]string{"version"})
-	if err := rootCmd.Execute(); err != nil {
+	if err := run([]string{"version"}, buf, buf); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
 	// Assert against the package var, not a literal: a release build stamps it
