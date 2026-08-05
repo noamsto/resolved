@@ -7,18 +7,18 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/alecthomas/kong"
 	"github.com/noamsto/resolved/internal/cache"
 	"github.com/noamsto/resolved/internal/engine"
 	"github.com/noamsto/resolved/internal/gitctx"
 	"github.com/noamsto/resolved/internal/github"
 	"github.com/noamsto/resolved/internal/report"
-	"github.com/spf13/cobra"
 )
 
 var defaultKeywords = []string{"TODO", "FIXME", "HACK", "XXX", "BUG"}
 
-// scanConfig is the fully-resolved input to runScan (separated from cobra for
-// testability).
+// scanConfig is the fully-resolved input to runScan (separated from the command
+// grammar for testability).
 type scanConfig struct {
 	dir      string
 	args     []string
@@ -106,51 +106,55 @@ func defaultCacheDir() string {
 	return filepath.Join(os.TempDir(), "resolved")
 }
 
-func init() {
-	var (
-		failOn   string
-		jsonOut  bool
-		noColor  bool
-		staged   bool
-		diffRef  string
-		exclude  []string
-		keywords []string
-		noCache  bool
-		bare     bool
-	)
-	cmd := &cobra.Command{
-		Use:   "scan [paths...]",
-		Short: "Scan comments for stale GitHub references",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			dir, err := os.Getwd()
-			if err != nil {
-				return err
-			}
-			kw := keywords
-			if len(kw) == 0 {
-				kw = defaultKeywords
-			}
-			code, err := runScan(scanConfig{
-				dir: dir, args: args, keywords: kw, failOn: failOn,
-				json: report.UseJSON(jsonOut), noColor: noColor,
-				staged: staged, diffRef: diffRef, exclude: exclude,
-				noCache: noCache, bare: bare, out: cmd.OutOrStdout(),
-			})
-			if err != nil {
-				return err
-			}
-			os.Exit(code)
-			return nil
-		},
+// targetFlags are the target-selection flags shared by scan and explore. It is
+// embedded without a prefix, so the flags appear on each command unqualified.
+type targetFlags struct {
+	Staged   bool     `help:"scan only git-staged files"`
+	Diff     string   `help:"scan only files changed vs this git ref"`
+	Exclude  []string `help:"glob(s) to exclude by base name"`
+	Keywords []string `help:"stale keywords (default TODO,FIXME,HACK,XXX,BUG)"`
+	NoCache  bool     `help:"bypass the on-disk cache"`
+	Bare     bool     `help:"also match bare #123 references against the origin repo (noisy in active repos)"`
+}
+
+// config resolves the flags and paths into the scanConfig both commands run on.
+func (f targetFlags) config(dir string, paths []string) scanConfig {
+	kw := f.Keywords
+	if len(kw) == 0 {
+		kw = defaultKeywords
 	}
-	cmd.Flags().StringVar(&failOn, "fail-on", "stale", "tier that sets exit 1: stale|closed|any")
-	cmd.Flags().BoolVar(&jsonOut, "json", false, "force JSON output (default: auto by TTY)")
-	cmd.Flags().BoolVar(&noColor, "no-color", false, "disable colored human output")
-	cmd.Flags().BoolVar(&staged, "staged", false, "scan only git-staged files")
-	cmd.Flags().StringVar(&diffRef, "diff", "", "scan only files changed vs this git ref")
-	cmd.Flags().StringSliceVar(&exclude, "exclude", nil, "glob(s) to exclude by base name")
-	cmd.Flags().StringSliceVar(&keywords, "keywords", nil, "stale keywords (default TODO,FIXME,HACK,XXX,BUG)")
-	cmd.Flags().BoolVar(&noCache, "no-cache", false, "bypass the on-disk cache")
-	cmd.Flags().BoolVar(&bare, "bare", false, "also match bare #123 references against the origin repo (noisy in active repos)")
-	rootCmd.AddCommand(cmd)
+	return scanConfig{
+		dir: dir, args: paths, keywords: kw,
+		staged: f.Staged, diffRef: f.Diff, exclude: f.Exclude,
+		noCache: f.NoCache, bare: f.Bare,
+	}
+}
+
+// ScanCmd scans comments for stale GitHub references.
+type ScanCmd struct {
+	Paths   []string    `arg:"" optional:"" name:"path" help:"Paths to scan (default: the whole repo)"`
+	Targets targetFlags `embed:""`
+
+	FailOn  string `default:"stale" help:"tier that sets exit 1: stale|closed|any"`
+	JSON    bool   `name:"json" help:"force JSON output (default: auto by TTY)"`
+	NoColor bool   `help:"disable colored human output"`
+}
+
+func (c ScanCmd) Run(kctx *kong.Context) error {
+	dir, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+	cfg := c.Targets.config(dir, c.Paths)
+	cfg.failOn = c.FailOn
+	cfg.json = report.UseJSON(c.JSON)
+	cfg.noColor = c.NoColor
+	cfg.out = kctx.Stdout
+
+	code, err := runScan(cfg)
+	if err != nil {
+		return err
+	}
+	os.Exit(code)
+	return nil
 }
