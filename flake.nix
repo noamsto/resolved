@@ -18,7 +18,7 @@
           pname = "resolved";
           inherit version;
           src = ./.;
-          vendorHash = "sha256-+UTTP+CkWXFxesPRkBZGNOlAIjlbQgny3GQ2g+hMv/8=";
+          vendorHash = "sha256-70QEVRI57CUMKeVYzugw9+WXwrx1OWNqW4RxjfXR7DA=";
           nativeCheckInputs = [ pkgs.git ];
           env.CGO_ENABLED = "0";
           ldflags = [ "-s" "-w" "-X github.com/noamsto/resolved/internal/cli.version=${version}" ];
