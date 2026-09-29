@@ -15,7 +15,7 @@ func gitInit(t *testing.T, dir string) {
 		{"config", "user.email", "t@t"},
 		{"config", "user.name", "t"},
 	} {
-		cmd := exec.Command("git", append([]string{"-C", dir}, args...)...) //nolint:gosec // test helper: fixed git argv, caller-controlled temp dir and args
+		cmd := exec.Command("git", append([]string{"-C", dir}, args...)...)
 		if out, err := cmd.CombinedOutput(); err != nil {
 			t.Fatalf("git %v: %v\n%s", args, err, out)
 		}
@@ -24,7 +24,7 @@ func gitInit(t *testing.T, dir string) {
 
 func gitAdd(t *testing.T, dir string) {
 	t.Helper()
-	cmd := exec.Command("git", "-C", dir, "add", "-A") //nolint:gosec // test helper: fixed git argv, temp dir
+	cmd := exec.Command("git", "-C", dir, "add", "-A")
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("git add: %v\n%s", err, out)
 	}
@@ -172,12 +172,12 @@ func TestResolveTargetsExcludesNestedWorktree(t *testing.T) {
 	gitInit(t, dir)
 	write(t, dir, "main.go", "// x")
 	gitAdd(t, dir)
-	if out, err := exec.Command("git", "-C", dir, "commit", "-m", "init").CombinedOutput(); err != nil { //nolint:gosec // test helper: fixed git argv, temp dir
+	if out, err := exec.Command("git", "-C", dir, "commit", "-m", "init").CombinedOutput(); err != nil {
 		t.Fatalf("git commit: %v\n%s", err, out)
 	}
 
 	wt := filepath.Join(dir, "wt")
-	if out, err := exec.Command("git", "-C", dir, "worktree", "add", wt).CombinedOutput(); err != nil { //nolint:gosec // test helper: fixed git argv, temp dir
+	if out, err := exec.Command("git", "-C", dir, "worktree", "add", wt).CombinedOutput(); err != nil {
 		t.Fatalf("git worktree add: %v\n%s", err, out)
 	}
 
