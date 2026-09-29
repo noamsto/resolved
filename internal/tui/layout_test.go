@@ -20,10 +20,10 @@ func layoutModel(t *testing.T, title string, w, h int) Model {
 	p := filepath.Join(dir, "demo.go")
 	var b strings.Builder
 	b.WriteString("package d\n")
-	for i := 0; i < 60; i++ {
+	for range 60 {
 		b.WriteString("var x = 1 // filler line\n")
 	}
-	if err := os.WriteFile(p, []byte(b.String()), 0o644); err != nil {
+	if err := os.WriteFile(p, []byte(b.String()), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	f := model.Finding{

@@ -20,7 +20,7 @@ func parseRemoteURL(url string) (owner, repo string, err error) {
 // OriginRepo returns the owner/repo of the `origin` remote for the git repo
 // containing dir. Returns an error if there is no github origin.
 func OriginRepo(dir string) (owner, repo string, err error) {
-	cmd := exec.Command("git", "-C", dir, "remote", "get-url", "origin")
+	cmd := exec.Command("git", "-C", dir, "remote", "get-url", "origin") //nolint:gosec // fixed git argv; dir is the user-supplied repo root
 	out, err := cmd.Output()
 	if err != nil {
 		return "", "", fmt.Errorf("git remote get-url origin: %w", err)

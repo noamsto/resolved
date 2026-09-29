@@ -15,7 +15,7 @@ func gitInit(t *testing.T, dir string) {
 		{"config", "user.email", "t@t"},
 		{"config", "user.name", "t"},
 	} {
-		cmd := exec.Command("git", append([]string{"-C", dir}, args...)...)
+		cmd := exec.Command("git", append([]string{"-C", dir}, args...)...) //nolint:gosec // test helper: fixed git argv, caller-controlled temp dir and args
 		if out, err := cmd.CombinedOutput(); err != nil {
 			t.Fatalf("git %v: %v\n%s", args, err, out)
 		}
@@ -24,7 +24,7 @@ func gitInit(t *testing.T, dir string) {
 
 func gitAdd(t *testing.T, dir string) {
 	t.Helper()
-	cmd := exec.Command("git", "-C", dir, "add", "-A")
+	cmd := exec.Command("git", "-C", dir, "add", "-A") //nolint:gosec // test helper: fixed git argv, temp dir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("git add: %v\n%s", err, out)
 	}
@@ -32,7 +32,7 @@ func gitAdd(t *testing.T, dir string) {
 
 func write(t *testing.T, dir, name, content string) {
 	t.Helper()
-	if err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0o600); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -85,7 +85,7 @@ func TestResolveTargetsExplicitFileBypassesGitignore(t *testing.T) {
 func TestResolveTargetsNonRepoWalksAndSkipsGit(t *testing.T) {
 	dir := t.TempDir()
 	write(t, dir, "a.go", "x")
-	if err := os.MkdirAll(filepath.Join(dir, ".git"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(dir, ".git"), 0o750); err != nil {
 		t.Fatal(err)
 	}
 	write(t, filepath.Join(dir, ".git"), "config", "junk")
@@ -172,12 +172,12 @@ func TestResolveTargetsExcludesNestedWorktree(t *testing.T) {
 	gitInit(t, dir)
 	write(t, dir, "main.go", "// x")
 	gitAdd(t, dir)
-	if out, err := exec.Command("git", "-C", dir, "commit", "-m", "init").CombinedOutput(); err != nil {
+	if out, err := exec.Command("git", "-C", dir, "commit", "-m", "init").CombinedOutput(); err != nil { //nolint:gosec // test helper: fixed git argv, temp dir
 		t.Fatalf("git commit: %v\n%s", err, out)
 	}
 
 	wt := filepath.Join(dir, "wt")
-	if out, err := exec.Command("git", "-C", dir, "worktree", "add", wt).CombinedOutput(); err != nil {
+	if out, err := exec.Command("git", "-C", dir, "worktree", "add", wt).CombinedOutput(); err != nil { //nolint:gosec // test helper: fixed git argv, temp dir
 		t.Fatalf("git worktree add: %v\n%s", err, out)
 	}
 

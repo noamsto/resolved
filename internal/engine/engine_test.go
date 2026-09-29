@@ -29,7 +29,7 @@ func (f *fakeFetcher) Fetch(_ context.Context, refs []model.Reference) (map[stri
 func writeFile(t *testing.T, dir, name, content string) string {
 	t.Helper()
 	p := filepath.Join(dir, name)
-	if err := os.WriteFile(p, []byte(content), 0o644); err != nil {
+	if err := os.WriteFile(p, []byte(content), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	return p
@@ -214,8 +214,8 @@ func TestRunCountsUnreadableAsNeither(t *testing.T) {
 
 func TestScanTargetsDeterministicOrder(t *testing.T) {
 	dir := t.TempDir()
-	var targets []string
-	for i := 0; i < 50; i++ {
+	targets := make([]string, 0, 50)
+	for i := range 50 {
 		name := fmt.Sprintf("f%02d.go", i)
 		writeFile(t, dir, name,
 			fmt.Sprintf("package main\n// TODO https://github.com/o/r/issues/%d\n", i+1))
@@ -226,7 +226,7 @@ func TestScanTargetsDeterministicOrder(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for run := 0; run < 5; run++ {
+	for run := range 5 {
 		got, _, err := Scan(Options{Targets: targets, Keywords: []string{"TODO"}})
 		if err != nil {
 			t.Fatal(err)
@@ -235,13 +235,13 @@ func TestScanTargetsDeterministicOrder(t *testing.T) {
 			t.Fatalf("run %d: len %d, want %d", run, len(got), len(first))
 		}
 		for i := range got {
-			if got[i].Reference.File != first[i].Reference.File {
+			if got[i].File != first[i].File {
 				t.Fatalf("run %d: order diverged at %d: %s vs %s",
-					run, i, got[i].Reference.File, first[i].Reference.File)
+					run, i, got[i].File, first[i].File)
 			}
 		}
 	}
-	if first[0].Reference.File != targets[0] {
-		t.Fatalf("findings not in target order: %s vs %s", first[0].Reference.File, targets[0])
+	if first[0].File != targets[0] {
+		t.Fatalf("findings not in target order: %s vs %s", first[0].File, targets[0])
 	}
 }

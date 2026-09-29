@@ -218,7 +218,7 @@ func TestWindowSizeSetsDims(t *testing.T) {
 func TestViewRendersHeaderListDetail(t *testing.T) {
 	dir := t.TempDir()
 	p := filepath.Join(dir, "demo.go")
-	if err := os.WriteFile(p, []byte("package d\n// TODO drop once https://github.com/o/r/issues/1 ships\nfunc x(){}\n"), 0o644); err != nil {
+	if err := os.WriteFile(p, []byte("package d\n// TODO drop once https://github.com/o/r/issues/1 ships\nfunc x(){}\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	f := model.Finding{
@@ -310,7 +310,7 @@ func TestHeaderShowsGoneAndMode(t *testing.T) {
 
 func TestListScrollFollowsCursor(t *testing.T) {
 	var fs []model.Finding
-	for i := 0; i < 30; i++ {
+	for i := range 30 {
 		fs = append(fs, model.Finding{
 			Reference: model.Reference{File: "f.go", Line: i + 1, Owner: "o", Repo: "r", Number: i + 1},
 			Tier:      model.TierOpen,
@@ -320,7 +320,7 @@ func TestListScrollFollowsCursor(t *testing.T) {
 	nm, _ := m.Update(tea.WindowSizeMsg{Width: 100, Height: 12})
 	m = nm.(Model)
 
-	for i := 0; i < 29; i++ {
+	for range 29 {
 		nm, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyDown})
 		m = nm.(Model)
 	}
@@ -725,7 +725,7 @@ func TestListRowsDoNotWrap(t *testing.T) {
 	m = nm.(Model)
 
 	out := strip(m.View().Content)
-	for _, line := range strings.Split(out, "\n") {
+	for line := range strings.SplitSeq(out, "\n") {
 		// A list line that contains a ref ("o/r#") must also contain a tier
 		// icon on the SAME line; otherwise the row wrapped.
 		if strings.Contains(line, "o/r#") {

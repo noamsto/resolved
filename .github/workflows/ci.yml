@@ -20,4 +20,4 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: DeterminateSystems/nix-installer-action@main
-      - run: nix build .#default # catches stale vendorHash on dependency changes
+      - run: nix flake check # golangci-lint + nilaway + go test -race; also catches stale vendorHash

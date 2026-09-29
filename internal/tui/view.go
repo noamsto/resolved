@@ -61,14 +61,12 @@ func (m Model) paneWidths() (listW, detailW int) {
 	if width <= 0 {
 		width = 80
 	}
-	listW = width / 2 // even split: rows carry state + title, so the list earns
-	if listW < 24 {   // as much width as the source-preview pane
-		listW = 24
-	}
-	detailW = width - listW
-	if detailW < 20 {
-		detailW = 20
-	}
+	listW = max(
+		// even split: rows carry state + title, so the list earns
+		width/2,
+		// as much width as the source-preview pane
+		24)
+	detailW = max(width-listW, 20)
 	return listW, detailW
 }
 
@@ -76,10 +74,7 @@ func (m Model) paneWidths() (listW, detailW int) {
 // width minus the border/padding frame).
 func (m Model) detailInnerWidth() int {
 	_, detailW := m.paneWidths()
-	inner := detailW - m.styles.pane.GetHorizontalFrameSize()
-	if inner < 6 {
-		inner = 6
-	}
+	inner := max(detailW-m.styles.pane.GetHorizontalFrameSize(), 6)
 	return inner
 }
 
@@ -127,10 +122,7 @@ func (m Model) renderAll() string {
 	ph := m.listHeight()
 	paneH := ph + 2                                 // Height includes the border; ph is the inner content height
 	frame := m.styles.pane.GetHorizontalFrameSize() // border + padding (l+r)
-	listInner := listW - frame
-	if listInner < 6 {
-		listInner = 6
-	}
+	listInner := max(listW-frame, 6)
 	detailInner := m.detailInnerWidth()
 	// MaxHeight hard-clips: Height is only a minimum, and content that wraps
 	// would otherwise grow the pane and push the footer off-screen.
@@ -198,10 +190,7 @@ func (m Model) locColWidth(width int) int {
 		}
 	}
 	const markerW, iconW, gap = 2, 2, 1
-	budget := width - markerW - iconW - gap - maxRef
-	if budget < 8 {
-		budget = 8
-	}
+	budget := max(width-markerW-iconW-gap-maxRef, 8)
 	if maxLoc < 1 {
 		maxLoc = 1
 	}
@@ -233,10 +222,7 @@ func (m Model) renderList(width int) string {
 		return "no references found"
 	}
 	vh := m.listHeight()
-	end := m.listOffset + vh
-	if end > len(rows) {
-		end = len(rows)
-	}
+	end := min(m.listOffset+vh, len(rows))
 	locW := m.locColWidth(width)
 	var b strings.Builder
 	for ri := m.listOffset; ri < end; ri++ {
@@ -266,10 +252,7 @@ func (m Model) renderFindingRow(f model.Finding, selected bool, locW, width int)
 	if m.mode == modeFile {
 		loc = lineStr // the file group header already carries the full path
 	} else {
-		nameBudget := locW - lipgloss.Width(lineStr)
-		if nameBudget < 3 {
-			nameBudget = 3
-		}
+		nameBudget := max(locW-lipgloss.Width(lineStr), 3)
 		loc = trimMid(m.shortLoc(f.File), nameBudget) + lineStr
 	}
 	locCell := lipgloss.NewStyle().Width(locW).Render(loc)
@@ -341,17 +324,11 @@ func (m Model) renderPreview(f model.Finding, width, avail int) []string {
 	if !ok {
 		return []string{m.styles.snippet.Render(sourceUnavailable)}
 	}
-	start := f.Line - 2
-	if start < 1 {
-		start = 1
-	}
+	start := max(f.Line-2, 1)
 	end := start + avail - 1
 	if end > len(src) {
 		end = len(src)
-		start = end - avail + 1
-		if start < 1 {
-			start = 1
-		}
+		start = max(end-avail+1, 1)
 	}
 	code := strings.Join(src[start-1:end], "\n")
 	colored := highlight(code, f.File, m.theme.Chroma)

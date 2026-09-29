@@ -63,7 +63,7 @@ func (c *Client) Fetch(ctx context.Context, refs []model.Reference) (map[string]
 	}
 
 	// Group references by owner/repo and assign aliases.
-	groups := map[string]*repoAlias{}
+	groups := map[string]repoAlias{}
 	var order []string
 	seen := map[string]bool{}
 	for _, r := range refs {
@@ -72,14 +72,20 @@ func (c *Client) Fetch(ctx context.Context, refs []model.Reference) (map[string]
 		}
 		seen[r.Key()] = true
 		gk := r.Owner + "/" + r.Repo
-		if _, ok := groups[gk]; !ok {
-			groups[gk] = &repoAlias{owner: r.Owner, repo: r.Repo}
+		g, ok := groups[gk]
+		if !ok {
+			g = repoAlias{owner: r.Owner, repo: r.Repo}
 			order = append(order, gk)
 		}
-		groups[gk].refs = append(groups[gk].refs, r)
+		g.refs = append(g.refs, r)
+		groups[gk] = g
+	}
+	ordered := make([]repoAlias, 0, len(order))
+	for _, gk := range order {
+		ordered = append(ordered, groups[gk])
 	}
 
-	query, aliasToKey := buildQuery(order, groups)
+	query, aliasToKey := buildQuery(ordered)
 
 	body, err := json.Marshal(map[string]string{"query": query})
 	if err != nil {
@@ -96,7 +102,7 @@ func (c *Client) Fetch(ctx context.Context, refs []model.Reference) (map[string]
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("github graphql: status %d", resp.StatusCode)
 	}
@@ -161,12 +167,11 @@ func (n *node) status() model.Status {
 	return model.Status{State: state, Title: n.Title, UpdatedAt: n.UpdatedAt}
 }
 
-func buildQuery(order []string, groups map[string]*repoAlias) (string, map[string]string) {
+func buildQuery(groups []repoAlias) (string, map[string]string) {
 	aliasToKey := map[string]string{}
 	var b strings.Builder
 	b.WriteString("query {\n")
-	for ri, gk := range order {
-		g := groups[gk]
+	for ri, g := range groups {
 		ra := fmt.Sprintf("r%d", ri)
 		fmt.Fprintf(&b, "  %s: repository(owner: %q, name: %q) {\n", ra, g.owner, g.repo)
 		for ii, ref := range g.refs {

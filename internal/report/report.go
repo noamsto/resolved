@@ -75,19 +75,19 @@ func RenderHuman(w io.Writer, r engine.Result, color bool) {
 		if len(group) == 0 {
 			continue
 		}
-		fmt.Fprintf(w, "%s (%d)\n", labels[tier], len(group))
+		fmt.Fprintf(w, "%s (%d)\n", labels[tier], len(group)) //nolint:errcheck // best-effort report output; a write error is not recoverable here
 		for _, f := range group {
-			fmt.Fprintf(w, "  %s:%d  %s#%d  %s\n", f.File, f.Line, f.Owner+"/"+f.Repo, f.Number, f.Title)
+			fmt.Fprintf(w, "  %s:%d  %s#%d  %s\n", f.File, f.Line, f.Owner+"/"+f.Repo, f.Number, f.Title) //nolint:errcheck // best-effort report output; a write error is not recoverable here
 		}
 	}
 	s := r.Summary
-	fmt.Fprintf(w, "\n%d refs in %d files — %d stale, %d closed, %d open, %d gone, %d unknown",
+	fmt.Fprintf(w, "\n%d refs in %d files — %d stale, %d closed, %d open, %d gone, %d unknown", //nolint:errcheck // best-effort report output; a write error is not recoverable here
 		s.Refs, s.Scanned, s.Stale, s.Closed, s.Open, s.Gone, s.Unknown)
 	if s.Skipped > 0 {
 		// An all-unsupported repo must not read as a clean scan.
-		fmt.Fprintf(w, " (%d skipped: unsupported language)", s.Skipped)
+		fmt.Fprintf(w, " (%d skipped: unsupported language)", s.Skipped) //nolint:errcheck // best-effort report output; a write error is not recoverable here
 	}
-	fmt.Fprintln(w)
+	fmt.Fprintln(w) //nolint:errcheck // best-effort report output; a write error is not recoverable here
 }
 
 // ExitCode returns 0 (clean) or 1 (gate tripped) per the fail-on policy.

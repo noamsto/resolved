@@ -93,10 +93,7 @@ func resolveStream(cfg scanConfig, findings []model.Finding) <-chan tui.StatusBa
 
 		const batchSize = 12
 		for start := 0; start < len(misses); start += batchSize {
-			end := start + batchSize
-			if end > len(misses) {
-				end = len(misses)
-			}
+			end := min(start+batchSize, len(misses))
 			chunk := misses[start:end]
 			statuses, err := fetcher.Fetch(context.Background(), chunk)
 			if err != nil {
@@ -125,11 +122,11 @@ func exploreFindings(cfg scanConfig) ([]model.Finding, error) {
 func openInBrowser(url string) error {
 	switch runtime.GOOS {
 	case "darwin":
-		return exec.Command("open", url).Start()
+		return exec.Command("open", url).Start() //nolint:gosec // url is built only from [\w.-]+ owner/repo and an int number; passed as argv, not a shell string
 	case "windows":
-		return exec.Command("cmd", "/c", "start", url).Start()
+		return exec.Command("cmd", "/c", "start", url).Start() //nolint:gosec // cmd.exe re-parses its line, but url is built only from [\w.-]+ owner/repo and an int number, so it carries no metacharacters
 	default:
-		return exec.Command("xdg-open", url).Start()
+		return exec.Command("xdg-open", url).Start() //nolint:gosec // url is built only from [\w.-]+ owner/repo and an int number; passed as argv, not a shell string
 	}
 }
 
@@ -166,7 +163,7 @@ func relaunchInPopup() error {
 	if err != nil {
 		return err
 	}
-	c := exec.Command("tmux", tmuxPopupArgs(self, dir, os.Args[1:])...)
+	c := exec.Command("tmux", tmuxPopupArgs(self, dir, os.Args[1:])...) //nolint:gosec // fixed tmux argv; self and args come from this process's own execution
 	c.Stdin, c.Stdout, c.Stderr = os.Stdin, os.Stdout, os.Stderr
 	return c.Run()
 }
@@ -178,7 +175,7 @@ func editorCmd(file string, line int) tea.Cmd {
 		editor = "vi"
 	}
 	// +N line syntax works for vi/vim/nvim/hx; emacs/nano use different flags.
-	c := exec.Command(editor, fmt.Sprintf("+%d", line), file)
+	c := exec.Command(editor, fmt.Sprintf("+%d", line), file) //nolint:gosec // launches the user's own $EDITOR on a file, never a shell
 	return tea.ExecProcess(c, func(err error) tea.Msg {
 		return tui.EditorDone(err)
 	})

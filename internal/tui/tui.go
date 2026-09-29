@@ -150,7 +150,7 @@ func (m Model) waitBatch() tea.Cmd {
 // their tier. A bare #n that resolves to "gone" never named a real issue, so it
 // is dropped (mirrors engine.Run).
 func applyStatuses(findings []model.Finding, statuses map[string]model.Status) []model.Finding {
-	out := findings[:0]
+	out := make([]model.Finding, 0, len(findings))
 	for _, f := range findings {
 		if st, ok := statuses[f.Key()]; ok {
 			f.Status = st
@@ -391,10 +391,7 @@ func (m Model) listHeight() int {
 	if h <= 0 {
 		h = 24
 	}
-	rows := h - 4
-	if rows < 1 {
-		rows = 1
-	}
+	rows := max(h-4, 1)
 	return rows
 }
 

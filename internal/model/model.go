@@ -73,6 +73,8 @@ func (t Tier) String() string {
 		return "stale"
 	case TierGone:
 		return "gone"
+	case TierUnknown:
+		return "unknown"
 	}
 	return "unknown"
 }

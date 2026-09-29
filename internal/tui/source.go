@@ -22,11 +22,14 @@ func newSourceCache() *sourceCache {
 func (c *sourceCache) lines(path string) ([]string, bool) {
 	if !c.read[path] {
 		c.read[path] = true
-		if data, err := os.ReadFile(path); err == nil {
+		if data, err := os.ReadFile(path); err == nil { //nolint:gosec // path is a reference's own source file, not untrusted input
 			c.files[path] = strings.Split(string(data), "\n")
 		}
 	}
 	l, ok := c.files[path]
+	if l == nil {
+		l = []string{}
+	}
 	return l, ok
 }
 
