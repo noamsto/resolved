@@ -38,7 +38,7 @@ func resolveTargets(dir string, args []string, staged bool, diffRef string, excl
 
 // gitRoot returns the worktree root for dir and whether dir is inside a repo.
 func gitRoot(dir string) (string, bool) {
-	out, err := exec.Command("git", "-C", dir, "rev-parse", "--show-toplevel").Output()
+	out, err := exec.Command("git", "-C", dir, "rev-parse", "--show-toplevel").Output() //nolint:gosec // argv is a fixed git invocation; dir is the user-supplied scan root
 	if err != nil {
 		return "", false
 	}
@@ -122,12 +122,12 @@ func walkDir(root string) ([]string, error) {
 }
 
 func gitLines(dir string, args ...string) ([]string, error) {
-	out, err := exec.Command("git", append([]string{"-C", dir}, args...)...).Output()
+	out, err := exec.Command("git", append([]string{"-C", dir}, args...)...).Output() //nolint:gosec // fixed git subcommand; dir and args are the caller's own scan arguments
 	if err != nil {
 		return nil, err
 	}
 	var lines []string
-	for _, l := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+	for l := range strings.SplitSeq(strings.TrimSpace(string(out)), "\n") {
 		if l != "" {
 			lines = append(lines, l)
 		}
@@ -147,7 +147,7 @@ func filterByAttrs(dir string, paths []string) ([]string, error) {
 		return paths, nil
 	}
 	args := append([]string{"-C", dir, "check-attr", "-z", "--stdin"}, linguistAttrs...)
-	cmd := exec.Command("git", args...)
+	cmd := exec.Command("git", args...) //nolint:gosec // fixed git check-attr invocation; paths ride on stdin, not argv
 	cmd.Stdin = strings.NewReader(strings.Join(paths, "\x00") + "\x00")
 	out, err := cmd.Output()
 	if err != nil {
@@ -157,7 +157,7 @@ func filterByAttrs(dir string, paths []string) ([]string, error) {
 		// also skips filtering for the in-repo paths — acceptable, since the
 		// degradation only over-includes (a generated file gets scanned), and
 		// the only reachable case is explicit args mixing in/out-of-repo paths.
-		return paths, nil
+		return paths, nil //nolint:nilerr // attribute filtering is best-effort by design: the error is intentionally dropped, not lost
 	}
 
 	fields := strings.Split(strings.TrimSuffix(string(out), "\x00"), "\x00")

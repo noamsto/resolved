@@ -119,7 +119,7 @@ func TestPreviewShowsWindow(t *testing.T) {
 	dir := t.TempDir()
 	p := filepath.Join(dir, "demo.go")
 	src := "package d\n\nvar before2 = 1\nvar before1 = 2\n// TODO the ref line\nvar after1 = 3\nvar after2 = 4\n"
-	if err := os.WriteFile(p, []byte(src), 0o644); err != nil {
+	if err := os.WriteFile(p, []byte(src), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	f := model.Finding{

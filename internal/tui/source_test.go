@@ -10,7 +10,7 @@ import (
 func TestCommentSnippetReadsLine(t *testing.T) {
 	dir := t.TempDir()
 	p := filepath.Join(dir, "a.go")
-	if err := os.WriteFile(p, []byte("package x\n// TODO see #1\nfunc y(){}\n"), 0o644); err != nil {
+	if err := os.WriteFile(p, []byte("package x\n// TODO see #1\nfunc y(){}\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	c := newSourceCache()
@@ -30,7 +30,7 @@ func TestCommentSnippetMissingFile(t *testing.T) {
 func TestCommentSnippetOutOfRange(t *testing.T) {
 	dir := t.TempDir()
 	p := filepath.Join(dir, "a.go")
-	_ = os.WriteFile(p, []byte("one\n"), 0o644)
+	_ = os.WriteFile(p, []byte("one\n"), 0o600)
 	c := newSourceCache()
 	if got := c.snippet(p, 99); got != "(source unavailable)" {
 		t.Fatalf("snippet = %q, want (source unavailable) for out-of-range line", got)

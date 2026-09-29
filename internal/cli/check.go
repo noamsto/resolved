@@ -63,7 +63,7 @@ func (c CheckCmd) Run(kctx *kong.Context) error {
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(kctx.Stdout, "%s#%d  %s  %s\n", f.Owner+"/"+f.Repo, f.Number, f.State, f.Title)
+	fmt.Fprintf(kctx.Stdout, "%s#%d  %s  %s\n", f.Owner+"/"+f.Repo, f.Number, f.State, f.Title) //nolint:errcheck // best-effort check output; a write error is not recoverable here
 	if f.Tier == model.TierClosed || f.Tier == model.TierStale {
 		os.Exit(1)
 	}

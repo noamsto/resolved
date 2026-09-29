@@ -129,9 +129,9 @@ func scanTargets(ctx context.Context, opts Options) ([]model.Reference, int, int
 				out[i].skipped = true
 				return nil
 			}
-			src, err := os.ReadFile(path)
+			src, err := os.ReadFile(path) //nolint:gosec // path is a scan target the user selected, not untrusted input
 			if err != nil {
-				return nil // unreadable: counted as neither
+				return nil //nolint:nilerr // unreadable file is deliberately non-fatal: counted as neither scanned nor skipped
 			}
 			comments, err := detect.Comments(path, src)
 			if err != nil {

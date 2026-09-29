@@ -94,10 +94,10 @@ func (c *Cache) Put(key string, s model.Status) {
 
 // flush writes entries to disk. Caller must hold c.mu.
 func (c *Cache) flush() {
-	_ = os.MkdirAll(filepath.Dir(c.path), 0o755)
+	_ = os.MkdirAll(filepath.Dir(c.path), 0o750)
 	data, err := json.MarshalIndent(c.entries, "", "  ")
 	if err != nil {
 		return
 	}
-	_ = os.WriteFile(c.path, data, 0o644)
+	_ = os.WriteFile(c.path, data, 0o600)
 }

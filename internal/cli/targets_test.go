@@ -32,7 +32,7 @@ func gitAdd(t *testing.T, dir string) {
 
 func write(t *testing.T, dir, name, content string) {
 	t.Helper()
-	if err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0o600); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -85,7 +85,7 @@ func TestResolveTargetsExplicitFileBypassesGitignore(t *testing.T) {
 func TestResolveTargetsNonRepoWalksAndSkipsGit(t *testing.T) {
 	dir := t.TempDir()
 	write(t, dir, "a.go", "x")
-	if err := os.MkdirAll(filepath.Join(dir, ".git"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(dir, ".git"), 0o750); err != nil {
 		t.Fatal(err)
 	}
 	write(t, filepath.Join(dir, ".git"), "config", "junk")

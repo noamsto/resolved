@@ -13,6 +13,6 @@ var version = "dev"
 type VersionCmd struct{}
 
 func (VersionCmd) Run(kctx *kong.Context) error {
-	fmt.Fprintln(kctx.Stdout, version)
+	fmt.Fprintln(kctx.Stdout, version) //nolint:errcheck // best-effort version output; a write error is not recoverable here
 	return nil
 }
