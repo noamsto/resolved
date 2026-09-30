@@ -109,6 +109,29 @@ func TestRunSuppressesGoneBareRefs(t *testing.T) {
 	}
 }
 
+func TestRunReportsUnknownBareRefs(t *testing.T) {
+	dir := t.TempDir()
+	f := writeFile(t, dir, "a.go",
+		"package main\n// see #9 which we could not resolve\nfunc main(){}\n")
+	fetcher := &fakeFetcher{statuses: map[string]model.Status{
+		"o/r#9": {State: "unknown"},
+	}}
+	res, err := Run(context.Background(), Options{
+		Targets: []string{f}, Keywords: []string{"TODO"},
+		Owner: "o", Repo: "r",
+		Cache: cache.New(t.TempDir()), GitHub: fetcher,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res.Findings) != 1 {
+		t.Fatalf("bare ref resolving to unknown should be reported, got %+v", res.Findings)
+	}
+	if res.Summary.Unknown != 1 {
+		t.Fatalf("Summary.Unknown = %d, want 1: %+v", res.Summary.Unknown, res.Summary)
+	}
+}
+
 func TestRunDedupesAndUsesCache(t *testing.T) {
 	dir := t.TempDir()
 	f := writeFile(t, dir, "a.go",
