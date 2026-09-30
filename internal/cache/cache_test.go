@@ -65,3 +65,15 @@ func TestDisabledAlwaysMisses(t *testing.T) {
 		t.Fatal("disabled cache should always miss")
 	}
 }
+
+func TestUnknownIsNotCached(t *testing.T) {
+	dir := t.TempDir()
+	c := New(dir)
+	c.Put("o/r#1", model.Status{State: "unknown"})
+	if _, ok := c.Get("o/r#1"); ok {
+		t.Fatal("unknown status must not be cached in memory")
+	}
+	if _, ok := New(dir).Get("o/r#1"); ok {
+		t.Fatal("unknown status must not be persisted")
+	}
+}

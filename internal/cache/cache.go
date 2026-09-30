@@ -27,7 +27,7 @@ func ttlFor(e entry) time.Duration {
 		return 7 * day
 	case "gone":
 		return day
-	default: // open / unknown
+	default: // open
 		return time.Hour
 	}
 }
@@ -76,11 +76,12 @@ func (c *Cache) Get(key string) (model.Status, bool) {
 	return model.Status{State: e.State, Title: e.Title, UpdatedAt: e.UpdatedAt}, true
 }
 
-// Put records a status and flushes the whole cache to disk.
+// Put records a status and flushes the whole cache to disk. Unknown statuses
+// are indeterminate and never cached.
 func (c *Cache) Put(key string, s model.Status) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if c.disabled {
+	if c.disabled || s.State == "unknown" {
 		return
 	}
 	c.entries[key] = entry{

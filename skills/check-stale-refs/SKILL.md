@@ -60,3 +60,7 @@ For each actionable reference (tier `stale`, `closed`, or `gone`), offer to upda
 or remove the comment, and wait for the user's go-ahead before editing. Use the
 finding's `raw` text to locate the exact comment; Read the file region first, then
 Edit. Never edit unprompted.
+
+`unknown` is never actionable — do not offer edits or removals for it. The API
+could not confirm the reference's status (e.g. the token has no access to that
+repo, or GitHub returned an error), so it may point at a live issue.
