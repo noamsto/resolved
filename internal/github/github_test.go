@@ -116,6 +116,20 @@ func TestFetchUnresolvedIsUnknownUnlessNotFound(t *testing.T) {
 			want: map[string]string{"o/a#1": "closed", "o/a#2": "unknown"},
 		},
 		{
+			name: "NOT_FOUND listed before a covering FORBIDDEN is unknown",
+			body: `{"data":{"r0":{"i0":null}},
+				"errors":[{"type":"NOT_FOUND","path":["r0","i0"],"message":"gone"},{"type":"FORBIDDEN","path":["r0","i0"],"message":"nope"}]}`,
+			refs: twoRefs[:1],
+			want: map[string]string{"o/a#1": "unknown"},
+		},
+		{
+			name: "NOT_FOUND listed before a pathless error is unknown",
+			body: `{"data":{"r0":{"i0":null}},
+				"errors":[{"type":"NOT_FOUND","path":["r0","i0"],"message":"gone"},{"message":"boom"}]}`,
+			refs: twoRefs[:1],
+			want: map[string]string{"o/a#1": "unknown"},
+		},
+		{
 			name: "null item with NOT_FOUND and unrelated error is gone",
 			body: `{"data":{"r0":{"i0":null,"i1":null}},
 				"errors":[{"type":"NOT_FOUND","path":["r0","i0"],"message":"gone"},{"type":"FORBIDDEN","path":["r0","i1"],"message":"nope"}]}`,
