@@ -159,7 +159,8 @@ func (e gqlError) covers(ra, ia string) bool {
 }
 
 // classify reports "gone" only when GitHub positively says the item does not
-// exist; anything else unresolved is "unknown" so it is never treated as stale.
+// exist; anything else unresolved (no access, rate limits, partial errors) is
+// "unknown", which is never cached or acted on.
 func classify(repo map[string]*node, ra, ia string, errs []gqlError) model.Status {
 	unknown := model.Status{State: "unknown"}
 	if repo == nil {
