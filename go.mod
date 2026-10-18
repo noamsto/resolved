@@ -7,7 +7,7 @@ require (
 	charm.land/lipgloss/v2 v2.0.6
 	github.com/alecthomas/chroma/v2 v2.27.0
 	github.com/alecthomas/kong v1.16.1
-	github.com/charmbracelet/x/ansi v0.11.8
+	github.com/charmbracelet/x/ansi v0.11.9
 	golang.org/x/sync v0.24.0
 	golang.org/x/term v0.46.0
 )
