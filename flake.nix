@@ -9,7 +9,7 @@
   outputs = inputs@{ flake-parts, ... }:
     let
       version = (builtins.fromJSON (builtins.readFile ./.claude-plugin/plugin.json)).version;
-      vendorHash = "sha256-YmEdjy7WQDNtrPPV7tduYAJwYdm/UtSt/HIDTSEZMYY=";
+      vendorHash = "sha256-Nx2I+wVwEXVaqG27UIoP+et9DuC/pg6duLFN2Z2JqTI=";
     in
     flake-parts.lib.mkFlake { inherit inputs; } {
       systems = [ "x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin" ];
